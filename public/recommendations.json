@@ -1,0 +1,392 @@
+[
+  {
+    "genre": "Fantasy",
+    "books": [
+      {
+        "title": "The Name of the Wind",
+        "series": "Kingkiller Chronicle",
+        "author": "Patrick Rothfuss",
+        "label": "safest",
+        "blurb": "A legendary figure recounts his own life story to a chronicler, from poverty and magic school to infamy. Near-universal praise for the prose — main caveat is Book 3 has been unreleased for over a decade."
+      },
+      {
+        "title": "Mistborn",
+        "author": "Brandon Sanderson",
+        "label": "safest",
+        "blurb": "A street thief discovers rare magical abilities in a world ruled by an immortal tyrant, and joins a heist crew to overthrow him. Praised for inventive, rule-based magic and tight plotting."
+      },
+      {
+        "title": "The Way of Kings",
+        "series": "Stormlight Archive",
+        "author": "Brandon Sanderson",
+        "label": "safest",
+        "blurb": "A sprawling epic following soldiers, scholars, and would-be heroes on a war-torn world of storms and ancient magic. Considered one of the best modern epic fantasies — main complaint is sheer length."
+      },
+      {
+        "title": "The Lies of Locke Lamora",
+        "author": "Scott Lynch",
+        "label": "safest",
+        "blurb": "A con artist and his crew navigate the criminal underworld of a Venice-like fantasy city. Critically loved for its wit and heist-style plotting."
+      },
+      {
+        "title": "A Wizard of Earthsea",
+        "author": "Ursula K. Le Guin",
+        "label": "safest",
+        "blurb": "A boy wizard's coming-of-age story, more about balance and consequence than power fantasy. A genre-defining classic; some modern readers find the pacing slow."
+      },
+      {
+        "title": "The Hobbit",
+        "author": "J.R.R. Tolkien",
+        "label": "safest",
+        "blurb": "The foundational starting point for The Lord of the Rings — the source of most tropes other fantasy borrows from. Start here before Fellowship. Near-universal reverence as the genre's cornerstone."
+      },
+      {
+        "title": "Jade City",
+        "author": "Fonda Lee",
+        "label": "safest",
+        "blurb": "A crime-family epic in an Asian-inspired city where magical jade grants supernatural abilities. Award-winning, praised for its fresh setting and political intrigue."
+      },
+      {
+        "title": "The Witcher: The Last Wish",
+        "author": "Andrzej Sapkowski",
+        "label": "safest",
+        "blurb": "A monster hunter for hire navigates a morally grey world — the source material for the games and show. The early short-story collections are the ideal entry point. Well-regarded for their cynical tone."
+      },
+      {
+        "title": "Trail of Lightning",
+        "author": "Rebecca Roanhorse",
+        "label": "safest",
+        "blurb": "Post-apocalyptic fantasy rooted in Navajo mythology, following a monster-hunter heroine. Praised for its unique cultural foundation and fresh urban fantasy take."
+      },
+      {
+        "title": "Gardens of the Moon",
+        "series": "Malazan Book of the Fallen",
+        "author": "Steven Erikson",
+        "label": "polarizing",
+        "blurb": "A genre-defining epic with an enormous cast and a 'drop you in the deep end' approach to worldbuilding. Beloved by die-hard fans for scope and ambition — notorious for confusing first-time readers."
+      },
+      {
+        "title": "The Blade Itself",
+        "series": "First Law",
+        "author": "Joe Abercrombie",
+        "label": "polarizing",
+        "blurb": "A grimdark trilogy that deliberately subverts classic hero tropes with morally grey, often unlikeable characters. Loved for dark humor and trope subversion; criticized by some for being bleak by design."
+      },
+      {
+        "title": "Jonathan Strange & Mr Norrell",
+        "author": "Susanna Clarke",
+        "label": "polarizing",
+        "blurb": "A literary, alternate-history take on magic's return to 19th-century England. Critically acclaimed — some readers find the pacing slow and the prose deliberately dense and old-fashioned."
+      },
+      {
+        "title": "The Dark Tower: The Gunslinger",
+        "series": "The Dark Tower",
+        "author": "Stephen King",
+        "label": "polarizing",
+        "blurb": "A gunslinger's quest across a decaying multiverse blending fantasy, western, and horror. Deeply loved for ambition and worldbuilding; the ending of the series is famously divisive."
+      },
+      {
+        "title": "Vicious",
+        "author": "V.E. Schwab",
+        "label": "polarizing",
+        "blurb": "Two former friends turned rivals after gaining superpowers through near-death experiments. Well-liked and fast-paced with morally grey characters; some find the out-of-order structure gimmicky."
+      },
+      {
+        "title": "The Left Hand of Darkness",
+        "author": "Ursula K. Le Guin",
+        "label": "adjacent",
+        "blurb": "A human envoy navigates an alien world where inhabitants have no fixed gender. Hugely respected, award-winning, and ahead of its time. More cerebral than plot-driven."
+      },
+      {
+        "title": "All Systems Red",
+        "series": "Murderbot Diaries",
+        "author": "Martha Wells",
+        "label": "adjacent",
+        "blurb": "A security android who'd rather watch TV than deal with humans gets dragged into adventures anyway. Extremely well-loved, witty, and fast reads — start with the first novella."
+      },
+      {
+        "title": "The Neverending Story",
+        "author": "Michael Ende",
+        "label": "adjacent",
+        "blurb": "A boy is pulled into a magical book and becomes part of the story he's reading. The full novel is darker and deeper than the well-known film adaptation."
+      }
+    ]
+  },
+  {
+    "genre": "Thrillers",
+    "books": [
+      {
+        "title": "Final Girls",
+        "author": "Riley Sager",
+        "label": "safest",
+        "blurb": "Twisty psychological thriller with surprise reveals — Sager's signature style. Generally well-enjoyed and fast-paced. Some readers note his twists feel formulaic once you've read several of his books."
+      },
+      {
+        "title": "The House Across the Lake",
+        "author": "Riley Sager",
+        "label": "safest",
+        "blurb": "A widow gets drawn into a dangerous situation involving her glamorous neighbor. Considered one of Sager's stronger entries."
+      },
+      {
+        "title": "Behind Closed Doors",
+        "author": "B.A. Paris",
+        "label": "safest",
+        "blurb": "A seemingly perfect marriage hides a controlling, abusive truth. Well-reviewed and tense; some find it bleak rather than 'fun' to read."
+      },
+      {
+        "title": "The Hunting Party",
+        "author": "Lucy Foley",
+        "label": "safest",
+        "blurb": "A group of friends at a remote Scottish lodge for New Year's — one of them turns up dead. A solid, well-executed whodunit."
+      },
+      {
+        "title": "Still Missing",
+        "author": "Chevy Stevens",
+        "label": "safest",
+        "blurb": "A realtor is abducted and held captive for nearly a year, then must rebuild her life after escaping. Strong reviews for psychological depth; intense and dark for some readers."
+      },
+      {
+        "title": "Misery",
+        "author": "Stephen King",
+        "label": "safest",
+        "blurb": "A famous author is held captive by an obsessive fan. A horror-thriller classic with near-universal praise."
+      },
+      {
+        "title": "Gone Girl",
+        "author": "Gillian Flynn",
+        "label": "safest",
+        "blurb": "A husband becomes the prime suspect when his wife disappears, in one of the genre's most famous unreliable-narrator twists. Critically acclaimed and hugely influential."
+      },
+      {
+        "title": "Everyone in My Family Has Killed Someone",
+        "author": "Benjamin Stevenson",
+        "label": "safest",
+        "blurb": "A murder mystery with a comedic, self-aware tone — the narrator openly references mystery tropes as he tells the story. Very well-loved, including its recently released sequel."
+      },
+      {
+        "title": "The Woman in the Window",
+        "author": "A.J. Finn",
+        "label": "safest",
+        "blurb": "An agoraphobic woman witnesses a crime from her window and isn't sure anyone will believe her. Popular and fast; some find it derivative of Rear Window."
+      },
+      {
+        "title": "Rock, Paper, Scissors",
+        "author": "Alice Feeney",
+        "label": "safest",
+        "blurb": "A couple on a remote anniversary trip uncovers unsettling secrets about their marriage. Well-liked and twisty."
+      },
+      {
+        "title": "Sometimes I Lie",
+        "author": "Alice Feeney",
+        "label": "safest",
+        "blurb": "A woman wakes up in a hospital, unable to move or speak, recalling the events leading to her accident. Well-reviewed psychological thriller."
+      },
+      {
+        "title": "The Kind Worth Killing",
+        "author": "Peter Swanson",
+        "label": "safest",
+        "blurb": "A chance airport conversation leads two strangers to plot a murder together. Well-regarded, twisty and dark — considered some of the stronger 'stranger conspiracy' thrillers in the genre."
+      },
+      {
+        "title": "Verity",
+        "author": "Colleen Hoover",
+        "label": "polarizing",
+        "blurb": "A struggling writer is hired to finish a bestselling author's series and uncovers dark secrets in her manuscripts. Loved for being unputdownable; criticized for a messy ending and uneven tone between romance and thriller."
+      },
+      {
+        "title": "In the Woods",
+        "author": "Tana French",
+        "label": "polarizing",
+        "blurb": "A detective investigates a child's murder that echoes an unsolved disappearance from his own childhood. Loved for prose and atmosphere; the central mystery is deliberately left unresolved — which frustrates many readers."
+      },
+      {
+        "title": "Behind Her Eyes",
+        "author": "Sarah Pinborough",
+        "label": "polarizing",
+        "blurb": "A woman gets entangled with a married couple, leading to a famously wild twist. Extremely divisive — fans call the twist unforgettable, critics say it veers into territory that feels like cheating."
+      },
+      {
+        "title": "The Last House on Needless Street",
+        "author": "Catriona Ward",
+        "label": "polarizing",
+        "blurb": "A reclusive man, his daughter, and a cat in a house at the edge of the woods — slow-burn horror-thriller hybrid. Critically praised and award-winning; deliberately disorienting structure frustrates some readers."
+      }
+    ]
+  },
+  {
+    "genre": "Adventure & Survival",
+    "books": [
+      {
+        "title": "Hatchet",
+        "author": "Gary Paulsen",
+        "label": "safest",
+        "blurb": "A 13-year-old boy survives alone in the Canadian wilderness after a plane crash, armed with only a hatchet. A beloved classic — near-universal praise, often a formative read but holds up well for adults."
+      }
+    ]
+  },
+  {
+    "genre": "History & True Crime",
+    "books": [
+      {
+        "title": "The Nazi and the Psychiatrist",
+        "author": "Jack El-Hai",
+        "label": "safest",
+        "blurb": "True story of the U.S. Army psychiatrist assigned to evaluate Hermann Göring and other Nazi leaders at Nuremberg — and how studying evil up close unraveled his own life. NYT bestseller; recently adapted into the film Nuremberg."
+      },
+      {
+        "title": "22 Cells in Nuremberg",
+        "author": "Douglas M. Kelley",
+        "label": "safest",
+        "blurb": "The firsthand account by the actual psychiatrist who evaluated the 22 top Nazi leaders at Nuremberg. A rare, historically significant primary source — praised as one of the most important books published on WWII."
+      }
+    ]
+  },
+  {
+    "genre": "Contemporary Fiction",
+    "books": [
+      {
+        "title": "A Man Called Ove",
+        "author": "Fredrik Backman",
+        "label": "safest",
+        "blurb": "A grumpy, routine-obsessed widower's life is upended by an unlikely group of neighbors. Widely beloved, heartwarming without being saccharine — near-universal praise as a feel-good modern classic."
+      },
+      {
+        "title": "The Unlikely Pilgrimage of Harold Fry",
+        "author": "Rachel Joyce",
+        "label": "safest",
+        "blurb": "A retired man sets off on an impromptu, life-changing walk across England to visit a dying former friend. Gentle, quirky, well-loved bestseller."
+      },
+      {
+        "title": "The Poisonwood Bible",
+        "author": "Barbara Kingsolver",
+        "label": "safest",
+        "blurb": "A missionary family's life unravels in the Congo, narrated by the wife and four daughters across decades. Critically acclaimed, often called a modern masterpiece (Pulitzer finalist)."
+      },
+      {
+        "title": "Animal Dreams",
+        "author": "Barbara Kingsolver",
+        "label": "safest",
+        "blurb": "A woman returns to her Arizona hometown to care for her ailing father and confronts her past and the town's environmental crisis. Well-regarded literary fiction; praised for grounded characters."
+      },
+      {
+        "title": "To Kill a Mockingbird",
+        "author": "Harper Lee",
+        "label": "safest",
+        "blurb": "A young girl in Depression-era Alabama watches her father defend a Black man falsely accused of rape. Considered one of the greatest American novels and a staple of school curricula."
+      },
+      {
+        "title": "Jock of the Bushveld",
+        "author": "Percy FitzPatrick",
+        "label": "safest",
+        "blurb": "A memoir of adventures with a loyal hunting dog in turn-of-the-century South African bushveld. A beloved South African classic, consistently well-reviewed by those who've read it."
+      },
+      {
+        "title": "Scattered Minds",
+        "author": "Gabor Maté",
+        "label": "polarizing",
+        "blurb": "A trauma-informed look at ADHD, arguing it stems from early childhood environment rather than purely genetics. Respected in trauma and psychology circles; controversial among some clinicians."
+      },
+      {
+        "title": "The Art of Hearing Heartbeats",
+        "author": "Jan-Philipp Sendker",
+        "label": "polarizing",
+        "blurb": "A New York lawyer travels to Burma to uncover her father's hidden past and a decades-old love story. Loved by many for its romantic, atmospheric storytelling; some find it overly sentimental."
+      }
+    ]
+  },
+  {
+    "genre": "Warhammer 40K",
+    "books": [
+      {
+        "title": "Eisenhorn: Xenos",
+        "author": "Dan Abnett",
+        "label": "safest",
+        "blurb": "A detective/thriller story following an Imperial Inquisitor hunting a sinister conspiracy. Widely considered the best 40k entry point — requires zero prior lore knowledge."
+      },
+      {
+        "title": "Gaunt's Ghosts: First and Only",
+        "author": "Dan Abnett",
+        "label": "safest",
+        "blurb": "'Band of Brothers in space' — follows a regiment of Imperial Guard soldiers through brutal warfare. A beloved series for its grounded, human-scale perspective on the setting."
+      },
+      {
+        "title": "Helsreach",
+        "author": "Aaron Dembski-Bowden",
+        "label": "safest",
+        "blurb": "A single desperate last-stand battle as Space Marines defend a hive city from an Ork invasion. Praised as the purest distillation of 40k's tone — a great standalone taste test."
+      },
+      {
+        "title": "Horus Rising",
+        "series": "Horus Heresy Book 1",
+        "author": "Dan Abnett",
+        "label": "commitment",
+        "blurb": "The start of the 90+ book Horus Heresy saga, chronicling the betrayal that defines the entire 40k timeline. A strong start, but the full series is a serious long-term commitment."
+      }
+    ]
+  },
+  {
+    "genre": "Personal Growth",
+    "books": [
+      {
+        "title": "Man's Search for Meaning",
+        "author": "Viktor Frankl",
+        "label": "safest",
+        "blurb": "A psychiatrist's account of surviving Nazi concentration camps and the philosophy of meaning he developed from it. A widely respected modern classic with little real contention."
+      },
+      {
+        "title": "Meditations",
+        "author": "Marcus Aurelius",
+        "label": "safest",
+        "blurb": "Personal philosophical journal of a Roman emperor practicing Stoicism. A foundational text. Some find Stoic philosophy repetitive or emotionally cold."
+      },
+      {
+        "title": "Atomic Habits",
+        "author": "James Clear",
+        "label": "safest",
+        "blurb": "A practical framework for building good habits through small incremental changes. Popular and practical; common criticism is that it repackages common sense."
+      },
+      {
+        "title": "The War of Art",
+        "author": "Steven Pressfield",
+        "label": "safest",
+        "blurb": "A short, punchy book on overcoming 'Resistance' — the internal force that stops people from doing creative work. Loved by creatives for being concise and motivating."
+      },
+      {
+        "title": "Born a Crime",
+        "author": "Trevor Noah",
+        "label": "safest",
+        "blurb": "Memoir of growing up mixed-race in apartheid South Africa, blending humor with hard truths. Very well-loved — the audiobook narrated by Noah himself is often recommended as even better than the text."
+      },
+      {
+        "title": "Into the Wild",
+        "author": "Jon Krakauer",
+        "label": "safest",
+        "blurb": "True story of a young man who abandoned his possessions to live in the Alaskan wilderness, and died there. Gripping and widely respected; debate exists over whether the subject was inspiring or reckless."
+      },
+      {
+        "title": "Catch-22",
+        "author": "Joseph Heller",
+        "label": "safest",
+        "blurb": "A satirical anti-war novel about the absurd bureaucratic logic soldiers face in WWII. A widely respected classic of dark satire."
+      },
+      {
+        "title": "Fight Club",
+        "author": "Chuck Palahniuk",
+        "label": "polarizing",
+        "blurb": "A disaffected office worker forms an underground fight club that spirals into anarchist chaos. A cult classic; some find the philosophy and its real-world misreadings genuinely concerning rather than just edgy."
+      },
+      {
+        "title": "Never Finished",
+        "author": "David Goggins",
+        "label": "polarizing",
+        "blurb": "The follow-up to Can't Hurt Me, going deeper into Goggins's mindset on self-discipline and pushing past perceived limits. Fans enjoy the same intensity; critics say his extreme approach isn't realistic for most people."
+      },
+      {
+        "title": "Fear and Loathing in Las Vegas",
+        "author": "Hunter S. Thompson",
+        "label": "polarizing",
+        "blurb": "A drug-fueled, semi-fictionalized account of a wild trip to Vegas — a landmark of gonzo journalism. A cult favorite; some find the glorification of drug use off-putting rather than fun."
+      }
+    ]
+  }
+]

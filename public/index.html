@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Bookshelf — Sign in</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body class="auth-body">
+<div class="auth-card">
+  <h1>Bookshelf</h1>
+  <p class="tagline">Track what you've read — and what's next.</p>
+
+  <div class="auth-tabs">
+    <button class="auth-tab active" data-mode="login">Sign in</button>
+    <button class="auth-tab" data-mode="register">Create account</button>
+  </div>
+
+  <form id="authForm">
+    <input type="text" id="username" placeholder="Username" autocomplete="username" required>
+    <input type="password" id="password" placeholder="Password" autocomplete="current-password" required>
+    <button type="submit" class="btn-primary" id="submitBtn">Sign in</button>
+  </form>
+
+  <p class="error" id="errorMsg"></p>
+</div>
+
+<script>
+let mode = 'login';
+
+document.querySelectorAll('.auth-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    mode = tab.dataset.mode;
+    document.querySelectorAll('.auth-tab').forEach(t => t.classList.toggle('active', t === tab));
+    document.getElementById('submitBtn').textContent = mode === 'login' ? 'Sign in' : 'Create account';
+    document.getElementById('password').autocomplete = mode === 'login' ? 'current-password' : 'new-password';
+    document.getElementById('errorMsg').textContent = '';
+  });
+});
+
+document.getElementById('authForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const username = document.getElementById('username').value.trim();
+  const password = document.getElementById('password').value;
+  const errorMsg = document.getElementById('errorMsg');
+  errorMsg.textContent = '';
+
+  try {
+    const res = await fetch(`/api/${mode === 'login' ? 'login' : 'register'}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password })
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      errorMsg.textContent = data.error || 'Something went wrong.';
+      return;
+    }
+    window.location.href = '/app.html';
+  } catch (err) {
+    errorMsg.textContent = 'Could not reach the server. Try again.';
+  }
+});
+
+// If already logged in, skip straight to the app.
+fetch('/api/me').then(r => r.json()).then(data => {
+  if (data.loggedIn) window.location.href = '/app.html';
+});
+</script>
+</body>
+</html>

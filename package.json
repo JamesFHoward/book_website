@@ -1,0 +1,15 @@
+{
+  "name": "book-website",
+  "version": "1.0.0",
+  "description": "Personal book tracker with login, want-to-read and already-read lists, search via Open Library.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "express-session": "^1.18.0",
+    "better-sqlite3": "^11.3.0",
+    "bcrypt": "^5.1.1"
+  }
+}
