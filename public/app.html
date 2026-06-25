@@ -305,7 +305,40 @@ document.getElementById('searchInput').addEventListener('keydown', e => {
   if (e.key === 'Enter') doSearch();
 });
 
+function createFallingPages(){
+  const container = document.createElement('div');
+  container.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:0;overflow:hidden;';
+  document.body.insertBefore(container, document.body.firstChild);
+
+  for(let i = 0; i < 24; i++){
+    const el  = document.createElement('div');
+    const w   = Math.random()*13+7;
+    const h   = w*(1.28+Math.random()*0.18);
+    const x   = Math.random()*100;
+    const dur = Math.random()*10+9;
+    const del = Math.random()*18;
+    const r0  = (Math.random()-0.5)*45;
+    const r1  = r0+(Math.random()-0.5)*90;
+    const op  = (Math.random()*0.10+0.04).toFixed(3);
+
+    el.style.cssText = `
+      position:absolute;left:${x}%;top:0;
+      width:${w}px;height:${h}px;
+      background:rgba(255,252,242,0.88);
+      border:1px solid rgba(201,162,39,0.30);
+      border-radius:1px;
+      box-shadow:0 1px 3px rgba(31,61,46,0.08);
+      animation:page-fall ${dur}s ${del}s linear infinite;
+    `;
+    el.style.setProperty('--r0', r0+'deg');
+    el.style.setProperty('--r1', r1+'deg');
+    el.style.setProperty('--op', op);
+    container.appendChild(el);
+  }
+}
+
 (async () => {
+  createFallingPages();
   await checkAuth();
   await Promise.all([loadLists(), loadRecommendations()]);
   renderActiveTab();

@@ -66,5 +66,61 @@ fetch('/api/me').then(r => r.json()).then(data => {
   if (data.loggedIn) window.location.href = '/app.html';
 });
 </script>
+
+<script>
+(function(){
+  const canvas = document.createElement('canvas');
+  canvas.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;z-index:0;pointer-events:none;';
+  document.body.insertBefore(canvas, document.body.firstChild);
+  const ctx = canvas.getContext('2d');
+  let W, H;
+
+  // Palette: gold, forest green, rust — drawn at low opacity for subtlety
+  const COLORS = [[201,162,39],[31,61,46],[168,71,46]];
+
+  function mkParticle(spreadY){
+    const [r,g,b] = COLORS[Math.floor(Math.random()*COLORS.length)];
+    return {
+      x: Math.random()*W,
+      y: spreadY ? Math.random()*H : H+6,
+      radius: Math.random()*1.6+0.4,
+      vy: -(Math.random()*0.38+0.07),
+      vx: (Math.random()-0.5)*0.14,
+      baseOp: Math.random()*0.28+0.05,
+      phase: Math.random()*Math.PI*2,
+      phaseSpeed: Math.random()*0.013+0.004,
+      r,g,b
+    };
+  }
+
+  function resize(){
+    W = canvas.width = window.innerWidth;
+    H = canvas.height = window.innerHeight;
+  }
+
+  resize();
+  const particles = Array.from({length:95}, ()=>mkParticle(true));
+  window.addEventListener('resize', resize);
+
+  function frame(){
+    ctx.clearRect(0,0,W,H);
+    for(const p of particles){
+      p.phase += p.phaseSpeed;
+      const op = p.baseOp*(0.65+0.35*Math.sin(p.phase));
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.radius, 0, Math.PI*2);
+      ctx.fillStyle = `rgba(${p.r},${p.g},${p.b},${op})`;
+      ctx.fill();
+      p.y += p.vy;
+      p.x += p.vx;
+      if(p.y < -6){ p.y = H+6; p.x = Math.random()*W; }
+      if(p.x < 0)  p.x = W;
+      if(p.x > W)  p.x = 0;
+    }
+    requestAnimationFrame(frame);
+  }
+  frame();
+})();
+</script>
 </body>
 </html>
