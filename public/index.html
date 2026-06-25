@@ -4,8 +4,51 @@
 <meta charset="UTF-8">
 <title>Bookshelf — Sign in</title>
 <link rel="stylesheet" href="/style.css">
+<style>
+@keyframes cardIn {
+  from { opacity:0; transform:translateY(22px) scale(0.98); }
+  to   { opacity:1; transform:translateY(0)    scale(1);    }
+}
+@keyframes shake {
+  0%,100% { transform:translateX(0); }
+  20%,60% { transform:translateX(-7px); }
+  40%,80% { transform:translateX(7px); }
+}
+.auth-card {
+  animation: cardIn 0.55s cubic-bezier(0.22,1,0.36,1) both;
+}
+input[type="text"],
+input[type="password"] {
+  transition: border-color 0.15s, box-shadow 0.2s;
+}
+input[type="text"]:focus,
+input[type="password"]:focus {
+  box-shadow: 0 0 0 4px rgba(201,162,39,0.18);
+}
+.btn-primary {
+  transition: background 0.15s, transform 0.12s, box-shadow 0.15s;
+}
+.btn-primary:not(:disabled):hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(31,61,46,0.28);
+}
+.btn-primary:not(:disabled):active {
+  transform: translateY(0);
+  box-shadow: none;
+}
+.btn-primary:disabled {
+  opacity: 0.65;
+  cursor: default;
+}
+.auth-tab {
+  transition: color 0.2s, border-bottom-color 0.2s;
+}
+.error.shake {
+  animation: shake 0.38s ease;
+}
+</style>
 </head>
-<body class="auth-body">
+<body class="auth-body" data-bg-pages="true">
 <div class="auth-card">
   <h1>Bookshelf</h1>
   <p class="tagline">Track what you've read — and what's next.</p>
@@ -39,13 +82,19 @@ document.querySelectorAll('.auth-tab').forEach(tab => {
 
 document.getElementById('authForm').addEventListener('submit', async (e) => {
   e.preventDefault();
-  const username = document.getElementById('username').value.trim();
-  const password = document.getElementById('password').value;
-  const errorMsg = document.getElementById('errorMsg');
+  const username  = document.getElementById('username').value.trim();
+  const password  = document.getElementById('password').value;
+  const errorMsg  = document.getElementById('errorMsg');
+  const submitBtn = document.getElementById('submitBtn');
+  const label     = mode === 'login' ? 'Sign in' : 'Create account';
+
   errorMsg.textContent = '';
+  errorMsg.classList.remove('shake');
+  submitBtn.disabled    = true;
+  submitBtn.textContent = mode === 'login' ? 'Signing in…' : 'Creating account…';
 
   try {
-    const res = await fetch(`/api/${mode === 'login' ? 'login' : 'register'}`, {
+    const res  = await fetch(`/api/${mode === 'login' ? 'login' : 'register'}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username, password })
@@ -53,11 +102,19 @@ document.getElementById('authForm').addEventListener('submit', async (e) => {
     const data = await res.json();
     if (!res.ok) {
       errorMsg.textContent = data.error || 'Something went wrong.';
+      void errorMsg.offsetWidth; // restart animation
+      errorMsg.classList.add('shake');
+      submitBtn.disabled    = false;
+      submitBtn.textContent = label;
       return;
     }
     window.location.href = '/app.html';
   } catch (err) {
-    errorMsg.textContent = 'Could not reach the server. Try again.';
+    errorMsg.textContent  = 'Could not reach the server. Try again.';
+    void errorMsg.offsetWidth;
+    errorMsg.classList.add('shake');
+    submitBtn.disabled    = false;
+    submitBtn.textContent = label;
   }
 });
 
@@ -67,60 +124,6 @@ fetch('/api/me').then(r => r.json()).then(data => {
 });
 </script>
 
-<script>
-(function(){
-  const canvas = document.createElement('canvas');
-  canvas.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;z-index:0;pointer-events:none;';
-  document.body.insertBefore(canvas, document.body.firstChild);
-  const ctx = canvas.getContext('2d');
-  let W, H;
-
-  // Palette: gold, forest green, rust — drawn at low opacity for subtlety
-  const COLORS = [[201,162,39],[31,61,46],[168,71,46]];
-
-  function mkParticle(spreadY){
-    const [r,g,b] = COLORS[Math.floor(Math.random()*COLORS.length)];
-    return {
-      x: Math.random()*W,
-      y: spreadY ? Math.random()*H : H+6,
-      radius: Math.random()*1.6+0.4,
-      vy: -(Math.random()*0.38+0.07),
-      vx: (Math.random()-0.5)*0.14,
-      baseOp: Math.random()*0.28+0.05,
-      phase: Math.random()*Math.PI*2,
-      phaseSpeed: Math.random()*0.013+0.004,
-      r,g,b
-    };
-  }
-
-  function resize(){
-    W = canvas.width = window.innerWidth;
-    H = canvas.height = window.innerHeight;
-  }
-
-  resize();
-  const particles = Array.from({length:95}, ()=>mkParticle(true));
-  window.addEventListener('resize', resize);
-
-  function frame(){
-    ctx.clearRect(0,0,W,H);
-    for(const p of particles){
-      p.phase += p.phaseSpeed;
-      const op = p.baseOp*(0.65+0.35*Math.sin(p.phase));
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, p.radius, 0, Math.PI*2);
-      ctx.fillStyle = `rgba(${p.r},${p.g},${p.b},${op})`;
-      ctx.fill();
-      p.y += p.vy;
-      p.x += p.vx;
-      if(p.y < -6){ p.y = H+6; p.x = Math.random()*W; }
-      if(p.x < 0)  p.x = W;
-      if(p.x > W)  p.x = 0;
-    }
-    requestAnimationFrame(frame);
-  }
-  frame();
-})();
-</script>
+<script src="/background.js"></script>
 </body>
 </html>
