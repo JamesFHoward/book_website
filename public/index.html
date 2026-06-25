@@ -5,18 +5,62 @@
 <title>Bookshelf — Sign in</title>
 <link rel="stylesheet" href="/style.css">
 <style>
-@keyframes cardIn {
-  from { opacity:0; transform:translateY(22px) scale(0.98); }
-  to   { opacity:1; transform:translateY(0)    scale(1);    }
-}
-@keyframes shake {
-  0%,100% { transform:translateX(0); }
-  20%,60% { transform:translateX(-7px); }
-  40%,80% { transform:translateX(7px); }
+/* ── Entrance — book opening ── */
+@keyframes bookOpen {
+  0%   { transform:perspective(1200px) rotateY(-82deg); opacity:0; }
+  15%  { opacity:1; }
+  80%  { transform:perspective(1200px) rotateY(4deg); }
+  100% { transform:perspective(1200px) rotateY(0deg); opacity:1; }
 }
 .auth-card {
-  animation: cardIn 0.55s cubic-bezier(0.22,1,0.36,1) both;
+  animation: bookOpen 2.2s cubic-bezier(0.22,1,0.36,1) both;
+  transform-style: preserve-3d;
+  transform-origin: left center;
+  will-change: transform;
+  /* book layout — overrides style.css padding/max-width */
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  padding: 0;
+  max-width: 560px;
+  overflow: hidden;
 }
+.page-left {
+  flex: 0 0 185px;
+  background: #ddd4ba;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 30px 18px;
+  text-align: center;
+}
+.page-left h1 {
+  font-size: clamp(20px,3.5vw,26px);
+  margin: 0 0 8px;
+}
+.page-left .tagline {
+  font-size: 12.5px;
+  margin: 0 0 18px;
+  line-height: 1.5;
+}
+.book-spine {
+  flex: 0 0 11px;
+  background: linear-gradient(to right, #221004, #5c3015, #221004);
+}
+.page-right {
+  flex: 1;
+  padding: 32px 26px;
+}
+.bl {
+  height: 1px;
+  background: rgba(31,61,46,0.20);
+  margin: 10px 0;
+  border-radius: 1px;
+}
+.bl.short { width:55%; margin-left:auto; margin-right:auto; }
+
+/* ── Inputs ── */
 input[type="text"],
 input[type="password"] {
   transition: border-color 0.15s, box-shadow 0.2s;
@@ -25,61 +69,130 @@ input[type="text"]:focus,
 input[type="password"]:focus {
   box-shadow: 0 0 0 4px rgba(201,162,39,0.18);
 }
+
+/* ── Button ── */
 .btn-primary {
+  position: relative;
+  overflow: hidden;
   transition: background 0.15s, transform 0.12s, box-shadow 0.15s;
 }
 .btn-primary:not(:disabled):hover {
   transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(31,61,46,0.28);
+  box-shadow: 0 6px 18px rgba(31,61,46,0.30);
 }
-.btn-primary:not(:disabled):active {
-  transform: translateY(0);
-  box-shadow: none;
+.btn-primary:not(:disabled):active { transform: translateY(0); box-shadow: none; }
+.btn-primary:disabled { opacity:0.65; cursor:default; }
+
+/* Ripple */
+@keyframes ripple-out {
+  from { transform:translate(-50%,-50%) scale(0); opacity:0.35; }
+  to   { transform:translate(-50%,-50%) scale(4); opacity:0; }
 }
-.btn-primary:disabled {
-  opacity: 0.65;
-  cursor: default;
+.ripple-dot {
+  position: absolute;
+  width: 80px; height: 80px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.22);
+  animation: ripple-out 0.55s ease-out forwards;
+  pointer-events: none;
 }
-.auth-tab {
-  transition: color 0.2s, border-bottom-color 0.2s;
+
+/* ── Tabs ── */
+.auth-tabs { position: relative; }
+/* Hide the old static border-bottom highlight; sliding indicator replaces it */
+.auth-tab.active { border-bottom-color: transparent !important; }
+.tab-indicator {
+  position: absolute;
+  bottom: -1.5px;
+  height: 3px;
+  background: var(--gold);
+  border-radius: 2px 2px 0 0;
+  pointer-events: none;
+  transition: left 0.28s cubic-bezier(0.4,0,0.2,1),
+              width 0.28s cubic-bezier(0.4,0,0.2,1);
 }
-.error.shake {
-  animation: shake 0.38s ease;
+
+/* ── Error shake ── */
+@keyframes shake {
+  0%,100% { transform:translateX(0); }
+  20%,60% { transform:translateX(-7px); }
+  40%,80% { transform:translateX(7px); }
 }
+.error.shake { animation: shake 0.38s ease; }
 </style>
 </head>
 <body class="auth-body" data-bg-pages="true">
 <div class="auth-card">
-  <h1>Bookshelf</h1>
-  <p class="tagline">Track what you've read — and what's next.</p>
-
-  <div class="auth-tabs">
-    <button class="auth-tab active" data-mode="login">Sign in</button>
-    <button class="auth-tab" data-mode="register">Create account</button>
+  <!-- Left page — decorative book face -->
+  <div class="page-left">
+    <h1>Bookshelf</h1>
+    <p class="tagline">Track what you've read —<br>and what's next.</p>
+    <div class="book-deco">
+      <div class="bl"></div>
+      <div class="bl short"></div>
+      <div class="bl"></div>
+      <div class="bl"></div>
+      <div class="bl short"></div>
+      <div class="bl"></div>
+      <div class="bl"></div>
+      <div class="bl short"></div>
+    </div>
   </div>
 
-  <form id="authForm">
-    <input type="text" id="username" placeholder="Username" autocomplete="username" required>
-    <input type="password" id="password" placeholder="Password" autocomplete="current-password" required>
-    <button type="submit" class="btn-primary" id="submitBtn">Sign in</button>
-  </form>
+  <!-- Spine -->
+  <div class="book-spine"></div>
 
-  <p class="error" id="errorMsg"></p>
+  <!-- Right page — sign-in / register form -->
+  <div class="page-right">
+    <div class="auth-tabs">
+      <button class="auth-tab active" data-mode="login">Sign in</button>
+      <button class="auth-tab" data-mode="register">Create account</button>
+      <span class="tab-indicator"></span>
+    </div>
+
+    <form id="authForm">
+      <input type="text"     id="username" placeholder="Username" autocomplete="username"         required>
+      <input type="password" id="password" placeholder="Password" autocomplete="current-password" required>
+      <button type="submit" class="btn-primary" id="submitBtn">Sign in</button>
+    </form>
+
+    <p class="error" id="errorMsg"></p>
+  </div>
 </div>
 
 <script>
 let mode = 'login';
 
+// ── Sliding tab indicator ──────────────────────────────────────────────────
+const indicator = document.querySelector('.tab-indicator');
+
+function moveIndicator(tab) {
+  const pr = tab.parentElement.getBoundingClientRect();
+  const tr = tab.getBoundingClientRect();
+  indicator.style.left  = (tr.left - pr.left) + 'px';
+  indicator.style.width = tr.width + 'px';
+}
+
+// Position immediately (no transition) then re-enable transition
+requestAnimationFrame(() => {
+  indicator.style.transition = 'none';
+  moveIndicator(document.querySelector('.auth-tab.active'));
+  requestAnimationFrame(() => { indicator.style.transition = ''; });
+});
+
+// ── Tab switching ──────────────────────────────────────────────────────────
 document.querySelectorAll('.auth-tab').forEach(tab => {
   tab.addEventListener('click', () => {
     mode = tab.dataset.mode;
     document.querySelectorAll('.auth-tab').forEach(t => t.classList.toggle('active', t === tab));
+    moveIndicator(tab);
     document.getElementById('submitBtn').textContent = mode === 'login' ? 'Sign in' : 'Create account';
     document.getElementById('password').autocomplete = mode === 'login' ? 'current-password' : 'new-password';
     document.getElementById('errorMsg').textContent = '';
   });
 });
 
+// ── Form submit ────────────────────────────────────────────────────────────
 document.getElementById('authForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   const username  = document.getElementById('username').value.trim();
@@ -102,14 +215,14 @@ document.getElementById('authForm').addEventListener('submit', async (e) => {
     const data = await res.json();
     if (!res.ok) {
       errorMsg.textContent = data.error || 'Something went wrong.';
-      void errorMsg.offsetWidth; // restart animation
+      void errorMsg.offsetWidth;
       errorMsg.classList.add('shake');
       submitBtn.disabled    = false;
       submitBtn.textContent = label;
       return;
     }
     window.location.href = '/app.html';
-  } catch (err) {
+  } catch {
     errorMsg.textContent  = 'Could not reach the server. Try again.';
     void errorMsg.offsetWidth;
     errorMsg.classList.add('shake');
@@ -118,9 +231,44 @@ document.getElementById('authForm').addEventListener('submit', async (e) => {
   }
 });
 
-// If already logged in, skip straight to the app.
-fetch('/api/me').then(r => r.json()).then(data => {
-  if (data.loggedIn) window.location.href = '/app.html';
+// ── Button ripple ──────────────────────────────────────────────────────────
+document.getElementById('submitBtn').addEventListener('mousedown', e => {
+  if (e.currentTarget.disabled) return;
+  const btn  = e.currentTarget;
+  const rect = btn.getBoundingClientRect();
+  const dot  = document.createElement('span');
+  dot.className  = 'ripple-dot';
+  dot.style.left = (e.clientX - rect.left) + 'px';
+  dot.style.top  = (e.clientY - rect.top)  + 'px';
+  btn.appendChild(dot);
+  dot.addEventListener('animationend', () => dot.remove());
+});
+
+// ── Mouse parallax on card ─────────────────────────────────────────────────
+const card = document.querySelector('.auth-card');
+card.addEventListener('animationend', () => {
+  card.style.animation      = 'none';
+  card.style.transformOrigin = 'center center';  // reset from left-hinge for parallax
+  let tx = 0, ty = 0, gx = 0, gy = 0;
+
+  document.addEventListener('mousemove', e => {
+    gx = (e.clientX / innerWidth  - 0.5) * 2;   // −1 … 1
+    gy = (e.clientY / innerHeight - 0.5) * 2;
+  });
+  document.addEventListener('mouseleave', () => { gx = 0; gy = 0; });
+
+  (function tick() {
+    tx += (gy * -5 - tx) * 0.07;   // rotateX: mouse up → tilt top toward you
+    ty += (gx *  5 - ty) * 0.07;   // rotateY: mouse right → tilt right
+    card.style.transform =
+      `perspective(900px) rotateX(${tx.toFixed(2)}deg) rotateY(${ty.toFixed(2)}deg)`;
+    requestAnimationFrame(tick);
+  })();
+}, { once: true });
+
+// ── Skip login if already authenticated ───────────────────────────────────
+fetch('/api/me').then(r => r.json()).then(d => {
+  if (d.loggedIn) window.location.href = '/app.html';
 });
 </script>
 
