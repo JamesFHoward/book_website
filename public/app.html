@@ -72,7 +72,11 @@ async function checkAuth(){
   const data = await res.json();
   if (!data.loggedIn) { window.location.href = '/index.html'; return; }
   document.getElementById('userchip').innerHTML =
-    `Signed in as <strong>${data.username}</strong><br><a href="/profile.html" class="chip-link">My profile</a> · <button id="logoutBtn">Sign out</button>`;
+    `<div class="userchip-name">Signed in as <strong>${data.username}</strong></div>
+     <div class="userchip-actions">
+       <a href="/profile.html" class="nav-btn nav-btn-profile">My profile</a>
+       <button id="logoutBtn" class="nav-btn nav-btn-signout">Sign out</button>
+     </div>`;
   document.getElementById('logoutBtn').addEventListener('click', async () => {
     await fetch('/api/logout', { method: 'POST' });
     window.location.href = '/index.html';
@@ -189,11 +193,15 @@ function renderCard(b, idKey){
       </div>
       ${activeTab === 'read' ? starsHTML(rating) : ''}
       ${activeTab !== 'search' ? `
-        <div class="note-area">
-          <div class="note-display" style="display:${note?'block':'none'}"></div>
-          <button class="note-toggle">${note ? '✏ Edit note' : '✏ Add note'}</button>
+        <div class="note-area${activeTab === 'read' ? ' note-area--review' : ''}">
+          <div class="note-display${activeTab === 'read' ? ' note-display--review' : ''}" style="display:${note?'block':'none'}"></div>
+          <button class="note-toggle">${
+            note
+              ? (activeTab === 'read' ? '✏ Edit review' : '✏ Edit note')
+              : (activeTab === 'read' ? '✏ Write a review' : '✏ Add note')
+          }</button>
           <div class="note-editor" style="display:none">
-            <textarea class="note-ta" placeholder="Your thoughts on this book…"></textarea>
+            <textarea class="note-ta" placeholder="${activeTab === 'read' ? 'What did you think? Share your review…' : 'Your thoughts on this book…'}"></textarea>
             <div class="note-btns">
               <button class="note-save">Save</button>
               <button class="note-cancel">Cancel</button>
@@ -223,6 +231,11 @@ function renderCard(b, idKey){
         const result = await res.json();
         if (result.active) {
           lists[action][k] = { title, author, cover_i, key: k };
+          // Clear conflicting lists from local state
+          for (const gone of (result.removed || [])) {
+            if (gone === 'want' || gone === 'read') delete lists[gone][k];
+            if (gone === 'reading') readingList = readingList.filter(r => r.key !== k);
+          }
         } else {
           delete lists[action][k];
         }
@@ -234,9 +247,11 @@ function renderCard(b, idKey){
           await fetch('/api/reading/add', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ key: k, title, author, cover_i, cover_isbn: b.cover_isbn || null }),
+            body: JSON.stringify({ key: k, title, author, cover_i, cover_isbn: b.cover_isbn || null, total_pages: b.number_of_pages_median || null }),
           });
-          readingList.push({ key: k, title, author, cover_i, cover_isbn: b.cover_isbn || null, current_page: 0, total_pages: null });
+          readingList.push({ key: k, title, author, cover_i, cover_isbn: b.cover_isbn || null, current_page: 0, total_pages: b.number_of_pages_median || null });
+          // Adding to reading clears want
+          delete lists.want[k];
         }
       } else if (action === 'remove') {
         await fetch(`/api/lists/${activeTab}/${encodeURIComponent(k)}`, { method: 'DELETE' });
@@ -298,7 +313,9 @@ function renderCard(b, idKey){
       if (lists[activeTab]?.[k]) lists[activeTab][k].note = newNote || null;
       noteDisplay.textContent = newNote;
       noteDisplay.style.display = newNote ? 'block' : 'none';
-      noteToggle.textContent = newNote ? '✏ Edit note' : '✏ Add note';
+      noteToggle.textContent = newNote
+        ? (activeTab === 'read' ? '✏ Edit review' : '✏ Edit note')
+        : (activeTab === 'read' ? '✏ Write a review' : '✏ Add note');
       noteEditor.style.display = 'none';
       noteToggle.style.display = '';
       noteSave.disabled = false;
@@ -319,13 +336,16 @@ function renderCard(b, idKey){
 }
 
 const GENRE_COLORS = {
-  'Fantasy':                '#1B3A27',
-  'Thrillers':              '#5C1A1A',
-  'Adventure & Survival':   '#7A4A0C',
-  'History & True Crime':   '#1A2B4A',
-  'Contemporary Fiction':   '#3D1A5C',
-  'Warhammer 40K':          '#2A2A2A',
-  'Personal Growth':        '#1A4040',
+  'Fantasy':             '#1B3A27',
+  'Science Fiction':     '#1A2B4A',
+  'Thriller & Suspense': '#5C1A1A',
+  'Mystery':             '#3D1A5C',
+  'Horror':              '#2A0A0A',
+  'Historical Fiction':  '#4A3010',
+  'Biography & Memoir':  '#1A3A4A',
+  'True Crime':          '#3A1A00',
+  'Personal Development':'#1A4040',
+  'Literary Fiction':    '#2A2A40',
 };
 const REC_MOOD_LABELS = {
   'fast':'Fast Reads','dark':'Dark & Gritty','epic':'Epic Scale','cosy':'Cosy',
@@ -377,7 +397,7 @@ function forYouPicks(affinity, shelfTitles) {
     }
   }
   picks.sort((a, b) => b.score - a.score);
-  return picks.slice(0, 8);
+  return picks.slice(0, 20);
 }
 
 function renderRecommendations(){
@@ -400,28 +420,39 @@ function renderRecommendations(){
     _count: s.books.filter(b => shelfTitles.has((b.title||'').toLowerCase().trim())).length,
   })).sort((a,b) => b._score - a._score);
 
-  const presentMoods = MOOD_ORDER.filter(m =>
-    recommendations.some(s => s.books.some(b => (b.moods||[]).includes(m)))
-  );
-
-  let activeMood = 'all';
+  let activeGenre = 'all';
   const wrap = document.createElement('div');
 
-  const moodBar = document.createElement('div');
-  moodBar.className = 'mood-bar';
-  [['all','All'], ...presentMoods.map(m=>[m, REC_MOOD_LABELS[m]])].forEach(([m, label]) => {
+  // Genre filter bar
+  const genreBar = document.createElement('div');
+  genreBar.className = 'mood-bar';
+  [{ key: 'all', label: 'All' }, ...scored.map(s => ({ key: s.genre, label: s.genre }))].forEach(({ key, label }) => {
     const chip = document.createElement('button');
-    chip.className = 'mood-chip' + (m==='all'?' active':'');
-    chip.textContent = label; chip.dataset.mood = m;
-    moodBar.appendChild(chip);
+    chip.className = 'mood-chip' + (key === 'all' ? ' active' : '');
+    chip.textContent = label;
+    chip.dataset.genre = key;
+    if (key !== 'all') chip.dataset.color = GENRE_COLORS[key] || '#1F3D2E';
+    genreBar.appendChild(chip);
   });
-  moodBar.addEventListener('click', e => {
-    const chip = e.target.closest('.mood-chip'); if(!chip) return;
-    activeMood = chip.dataset.mood;
-    moodBar.querySelectorAll('.mood-chip').forEach(c => c.classList.toggle('active', c===chip));
+  genreBar.addEventListener('click', e => {
+    const chip = e.target.closest('.mood-chip'); if (!chip) return;
+    activeGenre = chip.dataset.genre;
+    genreBar.querySelectorAll('.mood-chip').forEach(c => {
+      const active = c === chip;
+      c.classList.toggle('active', active);
+      if (active && c.dataset.color) {
+        c.style.background = c.dataset.color;
+        c.style.borderColor = c.dataset.color;
+        c.style.color = '#fff';
+      } else {
+        c.style.background = '';
+        c.style.borderColor = '';
+        c.style.color = '';
+      }
+    });
     renderSections();
   });
-  wrap.appendChild(moodBar);
+  wrap.appendChild(genreBar);
 
   const sectionsWrap = document.createElement('div');
   wrap.appendChild(sectionsWrap);
@@ -474,43 +505,56 @@ function renderRecommendations(){
   }
 
   let renderEpoch = 0;
+  const TARGET = 20;
 
   function renderSections(){
     const epoch = ++renderEpoch;
     sectionsWrap.innerHTML = '';
 
-    // "For You" — only when user has shelf activity
-    if (picks.length) {
-      const filtered = activeMood === 'all'
-        ? picks
-        : picks.filter(p => (p.book.moods||[]).includes(activeMood));
-      if (filtered.length) {
-        const sect = document.createElement('div');
-        sect.className = 'genre-section';
-        const h = document.createElement('h2');
-        h.className = 'genre-header';
-        h.innerHTML = `<span class="genre-dot" style="background:var(--gold)"></span>For You <span class="genre-match-tag">based on your shelf</span>`;
-        sect.appendChild(h);
-        const grid = document.createElement('div');
-        grid.className = 'rec-genre-grid';
-        for (const { book, genre, color } of filtered)
-          grid.appendChild(makeRecCard(book, genre, color));
-        sect.appendChild(grid);
-        sectionsWrap.appendChild(sect);
+    // "For You" — only in All view, only when user has shelf activity
+    if (activeGenre === 'all' && picks.length) {
+      const sect = document.createElement('div');
+      sect.className = 'genre-section';
+      const h = document.createElement('h2');
+      h.className = 'genre-header';
+      h.innerHTML = `<span class="genre-dot" style="background:var(--gold)"></span>For You <span class="genre-match-tag">based on your shelf</span>`;
+      sect.appendChild(h);
+      const grid = document.createElement('div');
+      grid.className = 'rec-genre-grid';
+      for (const { book, genre, color } of picks)
+        grid.appendChild(makeRecCard(book, genre, color));
+      sect.appendChild(grid);
+      sectionsWrap.appendChild(sect);
+
+      // Pad For You to 20 using top-affinity genre's OL books
+      if (picks.length < TARGET) {
+        const topGenre = scored.find(s => s.olQuery && (affinity[s.genre] || 0) > 0) || scored[0];
+        if (topGenre?.olQuery) {
+          const shownTitles = new Set([
+            ...forYouTitles, ...shelfTitles,
+          ]);
+          const capturedGrid = grid;
+          fetchOlGenreBooks(topGenre.olQuery, shownTitles).then(olBooks => {
+            if (renderEpoch !== epoch) return;
+            for (const b of olBooks.slice(0, TARGET - picks.length))
+              capturedGrid.appendChild(makeRecCard(b, topGenre.genre, GENRE_COLORS[topGenre.genre] || '#1F3D2E', true));
+          });
+        }
       }
     }
 
     for (const section of scored){
-      const moodOk = b => activeMood === 'all' || (b.moods||[]).includes(activeMood);
+      // Skip genres not matching the active filter
+      if (activeGenre !== 'all' && section.genre !== activeGenre) continue;
 
       // Exclude books shown in "For You" to prevent repeats
       const notForYou = b => !forYouTitles.has((b.title||'').toLowerCase().trim());
 
       const unshelved = section.books.filter(b =>
-        (b.cover_i || b.cover_isbn) && !onShelf(b) && notForYou(b) && moodOk(b)
+        (b.cover_i || b.cover_isbn) && !onShelf(b) && notForYou(b)
       );
       const shelvedBks = section.books.filter(b =>
-        (b.cover_i || b.cover_isbn) && onShelf(b) && notForYou(b) && moodOk(b)
+        (b.cover_i || b.cover_isbn) && onShelf(b) && notForYou(b)
       );
       const books = [...unshelved, ...shelvedBks];
       if (!books.length && !section.olQuery) continue;
@@ -532,9 +576,8 @@ function renderRecommendations(){
       sect.appendChild(grid);
       sectionsWrap.appendChild(sect);
 
-      // Pad to ~20 with OL books (only in "all" mood — OL books have no mood tags)
-      const TARGET = 20;
-      if (activeMood === 'all' && section.olQuery && books.length < TARGET) {
+      // Pad to ~20 with OL books
+      if (section.olQuery && books.length < TARGET) {
         const needed = TARGET - books.length;
         const shownTitles = new Set([
           ...forYouTitles,
@@ -542,15 +585,14 @@ function renderRecommendations(){
         ]);
         const capturedGrid = grid;
         fetchOlGenreBooks(section.olQuery, shownTitles).then(olBooks => {
-          if (renderEpoch !== epoch) return; // user changed mood — discard
-          const toAdd = olBooks.slice(0, needed);
-          for (const b of toAdd)
+          if (renderEpoch !== epoch) return;
+          for (const b of olBooks.slice(0, needed))
             capturedGrid.appendChild(makeRecCard(b, section.genre, color, true));
         });
       }
     }
     if (!sectionsWrap.children.length)
-      sectionsWrap.innerHTML = '<div class="empty">No books match this filter.</div>';
+      sectionsWrap.innerHTML = '<div class="empty">No books in this genre yet.</div>';
   }
 
   renderSections();
@@ -559,7 +601,7 @@ function renderRecommendations(){
 // ── Unified book detail modal ──────────────────────────────────────────────
 // Works for both rec books (no OL key yet) and search result books (already have key).
 function showBookModal({ title, author, cover_i, cover_isbn, blurb, series, moods, genre,
-                         olBook = null, accentColor = '#1F3D2E' }) {
+                         olBook = null, accentColor = '#1F3D2E', pages = null }) {
   const imgUrl = cover_i
     ? `https://covers.openlibrary.org/b/id/${cover_i}-L.jpg`
     : cover_isbn
@@ -613,6 +655,7 @@ function showBookModal({ title, author, cover_i, cover_isbn, blurb, series, mood
   let currentTitle  = (olBook ? olBook.title  : null) || title;
   let currentAuthor = (olBook ? (olBook.author_name||[])[0] : null) || author || '';
   let currentCover  = (olBook ? olBook.cover_i : null) || cover_i || null;
+  let currentPages  = olBook?.number_of_pages_median || pages || null;
 
   function inList(list) { return !!(currentKey && lists[list][currentKey]); }
   function inReading()  { return !!(currentKey && readingList.some(r => r.key === currentKey)); }
@@ -638,7 +681,7 @@ function showBookModal({ title, author, cover_i, cover_isbn, blurb, series, mood
       return;
     }
 
-    const k = currentKey, bT = currentTitle, bA = currentAuthor, bC = currentCover, bI = cover_isbn || null;
+    const k = currentKey, bT = currentTitle, bA = currentAuthor, bC = currentCover, bI = cover_isbn || null, bP = currentPages;
 
     mkBtn(
       inList('want') ? '✓ Want to Read' : '+ Want to Read',
@@ -649,8 +692,13 @@ function showBookModal({ title, author, cover_i, cover_isbn, blurb, series, mood
           body: JSON.stringify({ key:k, title:bT, author:bA, cover_i:bC })
         });
         const r = await res.json();
-        if (r.active) lists.want[k] = { title:bT, author:bA, cover_i:bC, key:k };
-        else delete lists.want[k];
+        if (r.active) {
+          lists.want[k] = { title:bT, author:bA, cover_i:bC, key:k };
+          for (const gone of (r.removed || [])) {
+            if (gone === 'read') delete lists.read[k];
+            if (gone === 'reading') readingList = readingList.filter(e => e.key !== k);
+          }
+        } else { delete lists.want[k]; }
         updateCounts(); renderButtons();
       }
     );
@@ -665,9 +713,10 @@ function showBookModal({ title, author, cover_i, cover_isbn, blurb, series, mood
         } else {
           await fetch('/api/reading/add', {
             method:'POST', headers:{'Content-Type':'application/json'},
-            body: JSON.stringify({ key:k, title:bT, author:bA, cover_i:bC, cover_isbn:bI })
+            body: JSON.stringify({ key:k, title:bT, author:bA, cover_i:bC, cover_isbn:bI, total_pages:bP })
           });
-          readingList.push({ key:k, title:bT, author:bA, cover_i:bC, cover_isbn:bI, current_page:0, total_pages:null });
+          readingList.push({ key:k, title:bT, author:bA, cover_i:bC, cover_isbn:bI, current_page:0, total_pages:bP });
+          delete lists.want[k]; // reading clears want
         }
         updateCounts(); renderButtons();
       }
@@ -682,8 +731,13 @@ function showBookModal({ title, author, cover_i, cover_isbn, blurb, series, mood
           body: JSON.stringify({ key:k, title:bT, author:bA, cover_i:bC })
         });
         const r = await res.json();
-        if (r.active) lists.read[k] = { title:bT, author:bA, cover_i:bC, key:k };
-        else delete lists.read[k];
+        if (r.active) {
+          lists.read[k] = { title:bT, author:bA, cover_i:bC, key:k };
+          for (const gone of (r.removed || [])) {
+            if (gone === 'want') delete lists.want[k];
+            if (gone === 'reading') readingList = readingList.filter(e => e.key !== k);
+          }
+        } else { delete lists.read[k]; }
         updateCounts(); renderButtons();
       }
     );
@@ -745,6 +799,7 @@ function showBookModal({ title, author, cover_i, cover_isbn, blurb, series, mood
           currentTitle  = ob.title || title;
           currentAuthor = (ob.author_name||[])[0] || author || '';
           currentCover  = ob.cover_i || cover_i || null;
+          currentPages  = ob.number_of_pages_median || pages || null;
           renderButtons(); // upgrade from placeholders to live buttons
           // Fetch description now that we have the OL key
           const wk = (ob.key || '').replace('/works/', '');
@@ -778,6 +833,7 @@ function showSearchModal(book) {
     title: book.title, author,
     cover_i: book.cover_i, cover_isbn: null,
     blurb, olBook: book, accentColor: '#1F3D2E',
+    pages: book.number_of_pages_median || null,
   });
 }
 
@@ -919,36 +975,80 @@ function renderReading(){
         <div class="reading-author">${escHtml(book.author || 'Unknown author')}</div>
         ${started ? `<div class="reading-started">Started ${started}</div>` : ''}
         <div class="reading-progress-label">
-          <span>${tp > 0 ? `Page ${cp} of ${tp}` : cp > 0 ? `Page ${cp}` : 'No page set yet'}</span>
-          <span>${tp > 0 ? `${pctPages}%` : ''}</span>
+          <span class="reading-prog-text">${tp > 0 ? `Page ${cp} of ${tp}` : cp > 0 ? `Page ${cp}` : 'Set your page below'}</span>
+          <span class="reading-prog-pct">${tp > 0 ? `${pctPages}%` : ''}</span>
         </div>
         <div class="reading-bar-track">
           <div class="reading-bar-fill" style="width:${pctPages}%"></div>
         </div>
-        <div class="reading-page-row">
-          <input class="reading-page-input" type="number" min="0" placeholder="Page" value="${cp || ''}">
-          <span class="reading-page-sep">of</span>
-          <input class="reading-page-total" type="number" min="1" placeholder="Total" value="${tp || ''}">
-          <button class="reading-update-btn">Update</button>
+        <div class="reading-stepper">
+          <button class="reading-step-btn" data-d="-25">−25</button>
+          <button class="reading-step-btn" data-d="-10">−10</button>
+          <button class="reading-step-btn" data-d="-1">−1</button>
+          <input class="reading-page-input" type="number" min="0" max="${tp || 99999}" value="${cp || 0}" title="Current page">
+          <button class="reading-step-btn" data-d="1">+1</button>
+          <button class="reading-step-btn" data-d="10">+10</button>
+          <button class="reading-step-btn" data-d="25">+25</button>
+        </div>
+        <div class="reading-total-row">
+          <span class="reading-total-label">of</span>
+          <input class="reading-page-total" type="number" min="1" placeholder="total pages" value="${tp || ''}" title="Total pages">
+          <span class="reading-total-suffix">pages</span>
         </div>
         <div class="reading-actions">
-          <button class="reading-finish-btn">Finished</button>
+          <button class="reading-finish-btn">✓ Finished</button>
           <button class="reading-remove-btn">Remove</button>
         </div>
       </div>
     `;
 
-    // Update progress
-    card.querySelector('.reading-update-btn').addEventListener('click', async () => {
-      const cpVal = parseInt(card.querySelector('.reading-page-input').value, 10);
-      const tpVal = parseInt(card.querySelector('.reading-page-total').value, 10);
+    // Shared save helper
+    const pageInput  = card.querySelector('.reading-page-input');
+    const totalInput = card.querySelector('.reading-page-total');
+    const progText   = card.querySelector('.reading-prog-text');
+    const progPct    = card.querySelector('.reading-prog-pct');
+    const barFill    = card.querySelector('.reading-bar-fill');
+
+    async function saveProgress(cpVal, tpVal) {
       await fetch('/api/reading/progress', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ key: book.key, current_page: cpVal || 0, total_pages: tpVal || null }),
+        body: JSON.stringify({ key: book.key, current_page: cpVal, total_pages: tpVal || null }),
       });
-      await loadReading();
-      renderReading();
+      book.current_page = cpVal;
+      if (tpVal) book.total_pages = tpVal;
+      const pct = tpVal > 0 ? Math.min(100, Math.round((cpVal / tpVal) * 100)) : 0;
+      progText.textContent = tpVal > 0 ? `Page ${cpVal} of ${tpVal}` : cpVal > 0 ? `Page ${cpVal}` : 'Set your page below';
+      progPct.textContent  = tpVal > 0 ? `${pct}%` : '';
+      barFill.style.width  = `${pct}%`;
+      pageInput.max = tpVal || 99999;
+    }
+
+    // Step buttons — immediate save
+    card.querySelectorAll('.reading-step-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const delta  = parseInt(btn.dataset.d, 10);
+        const tp2    = parseInt(totalInput.value, 10) || book.total_pages || 0;
+        let   newCp  = Math.max(0, (parseInt(pageInput.value, 10) || 0) + delta);
+        if (tp2 > 0) newCp = Math.min(newCp, tp2);
+        pageInput.value = newCp;
+        await saveProgress(newCp, tp2 || null);
+      });
+    });
+
+    // Manual page input — save on blur or Enter
+    pageInput.addEventListener('change', async () => {
+      const cpVal = Math.max(0, parseInt(pageInput.value, 10) || 0);
+      const tp2   = parseInt(totalInput.value, 10) || book.total_pages || null;
+      if (tp2 && cpVal > tp2) { pageInput.value = tp2; }
+      await saveProgress(Math.min(cpVal, tp2 || cpVal), tp2);
+    });
+
+    // Total pages — save on blur
+    totalInput.addEventListener('change', async () => {
+      const tpVal = Math.max(1, parseInt(totalInput.value, 10) || 0);
+      const cpVal = parseInt(pageInput.value, 10) || book.current_page || 0;
+      if (tpVal) await saveProgress(cpVal, tpVal);
     });
 
     // Finish

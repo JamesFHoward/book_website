@@ -21,8 +21,8 @@
 <body class="auth-body">
 
 <div class="auth-card">
-  <h1 style="text-align:center;margin:0 0 6px;font-size:28px;">Bookshelf</h1>
-  <p style="text-align:center;color:#857c68;font-style:italic;margin:0 0 24px;font-size:13px;">Track what you read. Discover what's next.</p>
+  <h1 style="text-align:center;margin:0 0 8px;font-size:36px;">Bookshelf</h1>
+  <p style="text-align:center;color:#857c68;font-style:italic;margin:0 0 28px;font-size:16px;">Track what you read. Discover what's next.</p>
 
   <div class="auth-tabs">
     <button class="auth-tab active" id="tabLogin">Sign in</button>
@@ -31,9 +31,9 @@
 
   <!-- Login form -->
   <form id="loginForm">
-    <label style="font-size:13px;color:#5b5448;display:block;margin-bottom:4px;">Username</label>
+    <label style="font-size:15px;color:#5b5448;display:block;margin-bottom:5px;">Username</label>
     <input type="text" id="loginUser" autocomplete="username" required placeholder="your username">
-    <label style="font-size:13px;color:#5b5448;display:block;margin-bottom:4px;">Password</label>
+    <label style="font-size:15px;color:#5b5448;display:block;margin-bottom:5px;">Password</label>
     <div class="pw-wrap">
       <input type="password" id="loginPass" autocomplete="current-password" required placeholder="your password">
       <button type="button" class="pw-toggle" aria-label="Show password" onclick="togglePw('loginPass',this)">
@@ -44,17 +44,17 @@
     <div class="error" id="loginErr"></div>
     <button class="btn-primary" type="submit" style="margin-top:16px;">Sign in</button>
     <p style="text-align:center;margin:14px 0 0;">
-      <a href="/reset-password.html" style="font-size:12px;color:#857c68;text-decoration:underline;">Forgot password?</a>
+      <a href="/reset-password.html" style="font-size:14px;color:#857c68;text-decoration:underline;">Forgot password?</a>
     </p>
   </form>
 
   <!-- Register form -->
   <form id="registerForm" style="display:none">
-    <label style="font-size:13px;color:#5b5448;display:block;margin-bottom:4px;">Username</label>
+    <label style="font-size:15px;color:#5b5448;display:block;margin-bottom:5px;">Username</label>
     <input type="text" id="regUser" autocomplete="username" required placeholder="choose a username" maxlength="30">
-    <label style="font-size:13px;color:#5b5448;display:block;margin-bottom:4px;">Email</label>
+    <label style="font-size:15px;color:#5b5448;display:block;margin-bottom:5px;">Email</label>
     <input type="email" id="regEmail" autocomplete="email" placeholder="you@example.com" required>
-    <label style="font-size:13px;color:#5b5448;display:block;margin-bottom:4px;">Password</label>
+    <label style="font-size:15px;color:#5b5448;display:block;margin-bottom:5px;">Password</label>
     <div class="pw-wrap">
       <input type="password" id="regPass" autocomplete="new-password" required placeholder="at least 6 characters" minlength="6">
       <button type="button" class="pw-toggle" aria-label="Show password" onclick="togglePw('regPass',this)">

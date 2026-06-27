@@ -295,10 +295,26 @@ app.post('/api/lists/:listType/toggle', requireAuth, (req, res) => {
     db.prepare('DELETE FROM book_entries WHERE id = ?').run(existing.id);
     return res.json({ ok: true, active: false });
   }
+
+  // Enforce mutual exclusivity: want ↔ read ↔ reading
+  const removed = [];
+  if (listType === 'want' || listType === 'read') {
+    const conflict = listType === 'want' ? 'read' : 'want';
+    const r1 = db.prepare('DELETE FROM book_entries WHERE user_id = ? AND list_type = ? AND book_key = ?')
+      .run(req.session.userId, conflict, key);
+    if (r1.changes) removed.push(conflict);
+    // Adding to read also clears currently_reading (finished it)
+    if (listType === 'read') {
+      const r2 = db.prepare('DELETE FROM currently_reading WHERE user_id = ? AND book_key = ?')
+        .run(req.session.userId, key);
+      if (r2.changes) removed.push('reading');
+    }
+  }
+
   db.prepare(
     'INSERT INTO book_entries (user_id, list_type, book_key, title, author, cover_i) VALUES (?, ?, ?, ?, ?, ?)'
   ).run(req.session.userId, listType, key, title, author || null, cover_i || null);
-  res.json({ ok: true, active: true });
+  res.json({ ok: true, active: true, removed });
 });
 
 app.patch('/api/lists/note', requireAuth, (req, res) => {
@@ -340,6 +356,9 @@ app.post('/api/reading/add', requireAuth, (req, res) => {
   if (!key || !title) return res.status(400).json({ error: 'Key and title required.' });
   const pages = Number.isInteger(total_pages) && total_pages > 0 ? total_pages : null;
   try {
+    // Adding to reading removes from want (no need to keep it in want-to-read)
+    db.prepare('DELETE FROM book_entries WHERE user_id = ? AND list_type = ? AND book_key = ?')
+      .run(req.session.userId, 'want', key);
     db.prepare(
       'INSERT OR IGNORE INTO currently_reading (user_id, book_key, title, author, cover_i, cover_isbn, total_pages) VALUES (?, ?, ?, ?, ?, ?, ?)'
     ).run(req.session.userId, key, title, author || null, cover_i || null, cover_isbn || null, pages);
@@ -435,7 +454,12 @@ app.get('/api/discover/genre', requireAuth, async (req, res) => {
       `https://openlibrary.org/search.json?q=${encodeURIComponent(q)}&limit=60&fields=${OL_FIELDS}`
     );
     const json = await upstream.json();
-    const books = (json.docs || []).filter(b => b.cover_i);
+    const EXCLUDE_SUBJECTS = ['manga','comic','comics','graphic novel','graphic novels','manhwa','manhua','light novel','anime'];
+    const books = (json.docs || []).filter(b => {
+      if (!b.cover_i) return false;
+      const subs = (b.subject || []).map(s => s.toLowerCase());
+      return !EXCLUDE_SUBJECTS.some(ex => subs.some(s => s.includes(ex)));
+    });
     genreBookCache.set(ck, { data: books, ts: Date.now() });
     res.json(books);
   } catch {
