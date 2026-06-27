@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bookshelf — My Profile</title>
+<link rel="stylesheet" href="/style.css">
+<style>
+.profile-wrap{
+  max-width:680px;
+  margin:0 auto;
+  padding:32px 20px 60px;
+  position:relative;
+  z-index:1;
+}
+
+/* ── Nav bar ── */
+.profile-nav{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  margin-bottom:32px;
+}
+.profile-nav a{
+  font-family:Georgia,serif;
+  font-size:13px;
+  color:var(--forest);
+  text-decoration:none;
+  opacity:0.7;
+  transition:opacity 0.15s;
+}
+.profile-nav a:hover{ opacity:1; }
+.profile-nav button{
+  font-family:Georgia,serif;
+  font-size:13px;
+  background:none;border:none;padding:0;
+  color:var(--forest);opacity:0.7;cursor:pointer;
+  transition:opacity 0.15s;
+}
+.profile-nav button:hover{ opacity:1; }
+
+/* ── Header ── */
+.profile-header{
+  display:flex;
+  align-items:center;
+  gap:20px;
+  margin-bottom:28px;
+}
+.profile-avatar{
+  width:72px;height:72px;
+  border-radius:50%;
+  background:var(--forest);
+  display:flex;align-items:center;justify-content:center;
+  font-family:Georgia,serif;
+  font-size:30px;font-weight:700;
+  color:#f4edd6;
+  flex-shrink:0;
+  box-shadow:0 4px 18px rgba(31,61,46,0.30);
+}
+.profile-header-text h2{
+  font-family:Georgia,serif;
+  font-size:26px;font-weight:700;
+  color:var(--forest);
+  margin:0 0 4px;
+  letter-spacing:-0.01em;
+}
+.profile-header-text p{
+  font-family:Georgia,serif;
+  font-size:13px;
+  color:#7a7060;
+  margin:0;
+  font-style:italic;
+}
+
+/* ── Cards ── */
+.pcard{
+  background:var(--card);
+  border:1px solid #e3dbc2;
+  border-radius:10px;
+  padding:22px 24px;
+  margin-bottom:16px;
+}
+.pcard-title{
+  font-family:Georgia,serif;
+  font-size:12px;font-weight:600;
+  letter-spacing:0.14em;
+  text-transform:uppercase;
+  color:var(--forest);
+  opacity:0.6;
+  margin:0 0 16px;
+  padding-bottom:12px;
+  border-bottom:1px solid #e8e0cc;
+}
+
+/* ── Info rows ── */
+.info-row{
+  display:flex;
+  align-items:baseline;
+  gap:12px;
+  margin-bottom:12px;
+}
+.info-row:last-child{ margin-bottom:0; }
+.info-label{
+  font-family:Georgia,serif;
+  font-size:11px;
+  letter-spacing:0.10em;
+  text-transform:uppercase;
+  color:#9a8e78;
+  width:100px;
+  flex-shrink:0;
+}
+.info-value{
+  font-family:Georgia,serif;
+  font-size:14px;
+  color:var(--ink);
+}
+
+/* ── Stats grid ── */
+.stats-grid{
+  display:grid;
+  grid-template-columns:repeat(4,1fr);
+  gap:10px;
+  margin-bottom:18px;
+}
+.stat-box{
+  background:rgba(31,61,46,0.04);
+  border:1px solid #e3dbc2;
+  border-radius:8px;
+  padding:14px 10px;
+  text-align:center;
+}
+.stat-num{
+  font-family:Georgia,serif;
+  font-size:30px;font-weight:700;
+  color:var(--forest);
+  line-height:1;
+  margin-bottom:5px;
+}
+.stat-label{
+  font-family:Georgia,serif;
+  font-size:10px;
+  letter-spacing:0.08em;
+  text-transform:uppercase;
+  color:#9a8e78;
+  line-height:1.3;
+}
+
+/* ── Distribution bar ── */
+.dist-bar{
+  height:6px;
+  border-radius:3px;
+  overflow:hidden;
+  display:flex;
+  background:#e8e0cc;
+  margin-bottom:10px;
+}
+.dist-seg{ height:100%; transition:width 0.5s ease; }
+.dist-want{ background:#6b9e8a; }
+.dist-read{ background:var(--gold); }
+.dist-fav { background:#c06030; }
+.dist-legend{
+  display:flex;gap:16px;flex-wrap:wrap;
+  font-family:Georgia,serif;font-size:11px;color:#9a8e78;
+}
+.dist-legend span{ display:flex;align-items:center;gap:5px; }
+.dlot{ width:8px;height:8px;border-radius:50%;flex-shrink:0; }
+
+/* ── Goal progress ── */
+.goal-row{
+  display:flex;align-items:center;gap:16px;
+}
+.goal-ring-sm{
+  flex-shrink:0;position:relative;width:64px;height:64px;
+}
+.goal-ring-sm svg{ display:block; }
+.goal-ring-sm-label{
+  position:absolute;inset:0;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  line-height:1.1;
+}
+.goal-ring-sm-num{
+  font-family:Georgia,serif;font-size:17px;font-weight:700;color:var(--forest);
+}
+.goal-ring-sm-denom{
+  font-size:9px;color:#9a8e78;
+}
+.goal-text-wrap{ flex:1; }
+.goal-headline{
+  font-family:Georgia,serif;font-size:15px;font-weight:600;color:var(--ink);
+  margin-bottom:3px;
+}
+.goal-sub-text{
+  font-size:13px;color:#7a7060;
+}
+.goal-progress-bar{
+  height:5px;background:#e8e0cc;border-radius:3px;overflow:hidden;margin-top:10px;
+}
+.goal-progress-fill{
+  height:100%;background:var(--forest);border-radius:3px;transition:width 0.4s ease;
+}
+.goal-no-goal{
+  font-family:Georgia,serif;font-size:13px;color:#9a8e78;font-style:italic;
+}
+.goal-link{
+  font-size:12px;color:var(--forest);opacity:0.7;
+  text-decoration:underline;cursor:pointer;
+  background:none;border:none;font-family:Georgia,serif;
+  padding:0;margin-top:6px;display:inline-block;
+  transition:opacity 0.15s;
+}
+.goal-link:hover{ opacity:1; }
+
+/* ── Recent activity ── */
+.recent-list{ list-style:none;padding:0;margin:0; }
+.recent-list li{
+  display:flex;
+  align-items:baseline;
+  gap:10px;
+  padding:10px 0;
+  border-bottom:1px solid #ede5d4;
+  font-family:Georgia,serif;
+}
+.recent-list li:last-child{ border-bottom:none; }
+.rbadge{
+  font-size:9.5px;letter-spacing:0.07em;text-transform:uppercase;
+  padding:2px 7px;border-radius:10px;flex-shrink:0;font-weight:600;
+}
+.rbadge-want{ background:rgba(107,158,138,0.15);color:#3d7a66; }
+.rbadge-read{ background:rgba(201,162,39,0.15); color:#916f00; }
+.rbadge-fav { background:rgba(192,96,48,0.15);  color:#a04010; }
+.recent-title{ font-size:13.5px;color:var(--ink);font-weight:500; }
+.recent-author{ font-size:11.5px;color:#9a8e78;font-style:italic;margin-left:2px; }
+
+@media(max-width:520px){
+  .stats-grid{ grid-template-columns:repeat(2,1fr); }
+  .profile-header{ gap:14px; }
+  .profile-avatar{ width:58px;height:58px;font-size:24px; }
+}
+</style>
+</head>
+<body>
+
+<div class="profile-wrap">
+
+  <nav class="profile-nav">
+    <a href="/app.html">← Back to Bookshelf</a>
+    <button id="logoutBtn">Sign out</button>
+  </nav>
+
+  <!-- Header -->
+  <div class="profile-header">
+    <div class="profile-avatar" id="avatarEl">?</div>
+    <div class="profile-header-text">
+      <h2 id="displayName">Loading…</h2>
+      <p id="memberSince"></p>
+    </div>
+  </div>
+
+  <!-- Account info -->
+  <div class="pcard">
+    <div class="pcard-title">Account</div>
+    <div class="info-row">
+      <span class="info-label">Username</span>
+      <span class="info-value" id="infoUsername">—</span>
+    </div>
+    <div class="info-row">
+      <span class="info-label">Email</span>
+      <span class="info-value" id="infoEmail">—</span>
+    </div>
+    <div class="info-row">
+      <span class="info-label">Member since</span>
+      <span class="info-value" id="infoJoined">—</span>
+    </div>
+  </div>
+
+  <!-- Reading stats -->
+  <div class="pcard">
+    <div class="pcard-title">Reading Stats</div>
+    <div class="stats-grid">
+      <div class="stat-box">
+        <div class="stat-num" id="statReading">0</div>
+        <div class="stat-label">Currently Reading</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-num" id="statWant">0</div>
+        <div class="stat-label">Want to Read</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-num" id="statRead">0</div>
+        <div class="stat-label">Already Read</div>
+      </div>
+      <div class="stat-box">
+        <div class="stat-num" id="statFav">0</div>
+        <div class="stat-label">Favourites</div>
+      </div>
+    </div>
+    <div class="dist-bar" id="distBar">
+      <div class="dist-seg dist-want" id="distWant"></div>
+      <div class="dist-seg dist-read" id="distRead"></div>
+      <div class="dist-seg dist-fav"  id="distFav"></div>
+    </div>
+    <div class="dist-legend">
+      <span><span class="dlot" style="background:#6b9e8a"></span>Want to Read</span>
+      <span><span class="dlot" style="background:#c9a227"></span>Already Read</span>
+      <span><span class="dlot" style="background:#c06030"></span>Favourites</span>
+    </div>
+  </div>
+
+  <!-- Reading goal -->
+  <div class="pcard" id="goalCard">
+    <div class="pcard-title" id="goalCardTitle">2026 Reading Goal</div>
+    <div id="goalContent"></div>
+  </div>
+
+  <!-- Recent activity -->
+  <div class="pcard" id="recentCard" style="display:none">
+    <div class="pcard-title">Recently Added</div>
+    <ul class="recent-list" id="recentList"></ul>
+  </div>
+
+</div>
+
+<script>
+document.getElementById('logoutBtn').addEventListener('click', async () => {
+  await fetch('/api/logout', { method: 'POST' });
+  window.location.href = '/';
+});
+
+async function load() {
+  const res = await fetch('/api/profile');
+  if (res.status === 401) { window.location.href = '/'; return; }
+  const d = await res.json();
+
+  // Header
+  const initial = (d.username || '?')[0].toUpperCase();
+  document.getElementById('avatarEl').textContent    = initial;
+  document.getElementById('displayName').textContent = d.username;
+  const joined = d.created_at ? new Date(d.created_at) : null;
+  document.getElementById('memberSince').textContent =
+    joined ? 'Member since ' + joined.toLocaleDateString('en-GB', { month:'long', year:'numeric' }) : '';
+
+  // Account
+  document.getElementById('infoUsername').textContent = d.username;
+  document.getElementById('infoEmail').textContent    = d.email || 'Not set';
+  document.getElementById('infoJoined').textContent   =
+    joined ? joined.toLocaleDateString('en-GB', { day:'numeric', month:'long', year:'numeric' }) : '—';
+
+  // Stats
+  const { want = 0, read = 0, fav = 0 } = d.stats;
+  const reading = d.readingCount || 0;
+  document.getElementById('statReading').textContent = reading;
+  document.getElementById('statWant').textContent    = want;
+  document.getElementById('statRead').textContent    = read;
+  document.getElementById('statFav').textContent     = fav;
+
+  const total = want + read + fav || 1;
+  document.getElementById('distWant').style.width = (want / total * 100) + '%';
+  document.getElementById('distRead').style.width = (read / total * 100) + '%';
+  document.getElementById('distFav').style.width  = (fav  / total * 100) + '%';
+
+  // Goal
+  const goal = d.goal || {};
+  const year = goal.year || new Date().getFullYear();
+  document.getElementById('goalCardTitle').textContent = `${year} Reading Goal`;
+
+  const gc = document.getElementById('goalContent');
+  if (goal.target) {
+    const done = goal.read || 0;
+    const pct  = Math.min(100, Math.round((done / goal.target) * 100));
+    const r = 26, circ = 2 * Math.PI * r;
+    const dash = circ - (pct / 100) * circ;
+    gc.innerHTML = `
+      <div class="goal-row">
+        <div class="goal-ring-sm">
+          <svg width="64" height="64" viewBox="0 0 64 64">
+            <circle cx="32" cy="32" r="${r}" fill="none" stroke="#e8e0cc" stroke-width="6"/>
+            <circle cx="32" cy="32" r="${r}" fill="none" stroke="#1F3D2E" stroke-width="6"
+              stroke-dasharray="${circ.toFixed(1)}" stroke-dashoffset="${dash.toFixed(1)}"
+              stroke-linecap="round" transform="rotate(-90 32 32)"/>
+          </svg>
+          <div class="goal-ring-sm-label">
+            <span class="goal-ring-sm-num">${done}</span>
+            <span class="goal-ring-sm-denom">of ${goal.target}</span>
+          </div>
+        </div>
+        <div class="goal-text-wrap">
+          <div class="goal-headline">${
+            done >= goal.target
+              ? `Goal complete!`
+              : `${goal.target - done} book${goal.target - done !== 1 ? 's' : ''} to go`
+          }</div>
+          <div class="goal-sub-text">${done} of ${goal.target} books read in ${year}</div>
+          <div class="goal-progress-bar">
+            <div class="goal-progress-fill" style="width:${pct}%"></div>
+          </div>
+        </div>
+      </div>
+      <button class="goal-link" onclick="window.location.href='/app.html#reading'">Update goal in Reading tab →</button>
+    `;
+  } else {
+    gc.innerHTML = `
+      <p class="goal-no-goal">No reading goal set for ${year}.</p>
+      <button class="goal-link" onclick="window.location.href='/app.html'">Set a goal in the Reading tab →</button>
+    `;
+  }
+
+  // Recent activity
+  if (d.recent && d.recent.length) {
+    document.getElementById('recentCard').style.display = 'block';
+    const ul = document.getElementById('recentList');
+    const labels = { want: 'Want', read: 'Read', fav: 'Fav' };
+    for (const item of d.recent) {
+      const li = document.createElement('li');
+      li.innerHTML = `
+        <span class="rbadge rbadge-${item.list_type}">${labels[item.list_type]}</span>
+        <span>
+          <span class="recent-title">${escHtml(item.title)}</span>
+          ${item.author ? `<span class="recent-author"> — ${escHtml(item.author)}</span>` : ''}
+        </span>`;
+      ul.appendChild(li);
+    }
+  }
+}
+
+function escHtml(s){
+  return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+load();
+</script>
+
+</body>
+</html>

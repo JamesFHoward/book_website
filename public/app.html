@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Bookshelf</title>
 <link rel="stylesheet" href="/style.css">
 </head>
@@ -16,34 +17,62 @@
   </div>
 
   <div class="searchbar">
-    <input type="text" id="searchInput" placeholder="Search by title or author…" autocomplete="off">
+    <input type="text" id="searchInput" placeholder="Search by title, author or ISBN…" autocomplete="off">
     <button class="btn-primary" id="searchBtn" style="width:auto;">Search</button>
+    <button id="scanBtn" title="Scan barcode" style="width:auto;padding:13px 14px;border:1.5px solid var(--forest);background:none;color:var(--forest);border-radius:4px;font-size:16px;flex-shrink:0;">📷</button>
   </div>
 
   <div class="tabs">
-    <button class="tab active" data-tab="search">Search</button>
+    <button class="tab" data-tab="search">Search</button>
+    <button class="tab active" data-tab="recs">Discover</button>
+    <button class="tab" data-tab="reading">Reading<span class="count" id="countReading">0</span></button>
     <button class="tab" data-tab="want">Want to Read<span class="count" id="countWant">0</span></button>
     <button class="tab" data-tab="read">Already Read<span class="count" id="countRead">0</span></button>
     <button class="tab" data-tab="fav">Favorites<span class="count" id="countFav">0</span></button>
-    <button class="tab" data-tab="recs">Recommendations</button>
   </div>
 
   <div id="content"></div>
 </div>
 
-<script src="/background.js"></script>
+<!-- background loaded dynamically below via ?bg= param -->
 <script>
 let lists = { want: {}, read: {}, fav: {} };
 let lastResults = [];
 let recommendations = [];
-let activeTab = 'search';
+let activeTab = 'recs';
+let readingList = [];   // currently reading books
+let readingGoal = null; // { year, goal, read } for current year
+
+// Cover lookup cache — persists across re-renders this session
+const coverLookupCache = new Map();
+async function lookupCover(book) {
+  const key = (book.title || '').toLowerCase().trim();
+  if (coverLookupCache.has(key)) return coverLookupCache.get(key);
+  if (book.cover_i || book.cover_isbn) {
+    const r = { cover_i: book.cover_i || null, cover_isbn: book.cover_isbn || null };
+    coverLookupCache.set(key, r);
+    return r;
+  }
+  try {
+    const params = new URLSearchParams({ title: book.title });
+    if (book.author) params.set('author', book.author);
+    const res = await fetch(`/api/covers/lookup?${params}`);
+    const data = await res.json();
+    coverLookupCache.set(key, data);
+    return data;
+  } catch {
+    const fallback = { cover_i: null, cover_isbn: null };
+    coverLookupCache.set(key, fallback);
+    return fallback;
+  }
+}
 
 async function checkAuth(){
   const res = await fetch('/api/me');
   const data = await res.json();
   if (!data.loggedIn) { window.location.href = '/index.html'; return; }
   document.getElementById('userchip').innerHTML =
-    `Signed in as <strong>${data.username}</strong><br><button id="logoutBtn">Sign out</button>`;
+    `Signed in as <strong>${data.username}</strong><br><a href="/profile.html" class="chip-link">My profile</a> · <button id="logoutBtn">Sign out</button>`;
   document.getElementById('logoutBtn').addEventListener('click', async () => {
     await fetch('/api/logout', { method: 'POST' });
     window.location.href = '/index.html';
@@ -66,16 +95,55 @@ async function loadRecommendations(){
   }
 }
 
+async function prefetchMissingCovers(){
+  let needsRerender = false;
+  const lookups = [];
+  for (const section of recommendations){
+    for (const book of section.books){
+      if (!book.cover_i && !book.cover_isbn){
+        lookups.push(
+          lookupCover(book).then(result => {
+            if (result.cover_i || result.cover_isbn){
+              book.cover_i = result.cover_i;
+              book.cover_isbn = result.cover_isbn;
+              needsRerender = true;
+            }
+          })
+        );
+      }
+    }
+  }
+  if (!lookups.length) return;
+  await Promise.all(lookups);
+  if (needsRerender && activeTab === 'recs') renderRecommendations();
+}
+
+async function loadReading(){
+  try {
+    const [rRes, gRes] = await Promise.all([
+      fetch('/api/reading'),
+      fetch(`/api/goals/${new Date().getFullYear()}`),
+    ]);
+    readingList = rRes.ok ? await rRes.json() : [];
+    readingGoal = gRes.ok ? await gRes.json() : null;
+  } catch (_) {
+    readingList = [];
+  }
+}
+
 function updateCounts(){
-  document.getElementById('countWant').textContent = Object.keys(lists.want).length;
-  document.getElementById('countRead').textContent = Object.keys(lists.read).length;
-  document.getElementById('countFav').textContent = Object.keys(lists.fav).length;
+  const n = v => v || '';
+  document.getElementById('countWant').textContent    = n(Object.keys(lists.want).length);
+  document.getElementById('countRead').textContent    = n(Object.keys(lists.read).length);
+  document.getElementById('countFav').textContent     = n(Object.keys(lists.fav).length);
+  document.getElementById('countReading').textContent = n(readingList.length);
 }
 
 function bookKey(b){ return b.key || (b.title + '::' + (b.author_name ? b.author_name[0] : '')); }
 
 function coverUrl(b){
   if (b.cover_i) return `https://covers.openlibrary.org/b/id/${b.cover_i}-M.jpg`;
+  if (b.cover_isbn) return `https://covers.openlibrary.org/b/isbn/${b.cover_isbn}-M.jpg`;
   return null;
 }
 
@@ -88,33 +156,58 @@ function starsHTML(current){
   return html;
 }
 
+function escHtml(s) {
+  return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
 function renderCard(b, idKey){
   const k = idKey;
   const cover = coverUrl(b);
-  const inWant = !!lists.want[k];
-  const inRead = !!lists.read[k];
-  const inFav  = !!lists.fav[k];
+  const inWant    = !!lists.want[k];
+  const inRead    = !!lists.read[k];
+  const inFav     = !!lists.fav[k];
+  const inReading = readingList.some(r => r.key === k);
   const author = b.author_name ? b.author_name.join(', ') : (b.author || 'Unknown author');
   const title  = b.title || '(untitled)';
   const rating = (activeTab === 'read' && lists.read[k]) ? (lists.read[k].rating || 0) : 0;
+  const note   = (activeTab !== 'search' && lists[activeTab]?.[k]?.note) || '';
 
   const div = document.createElement('div');
   div.className = 'card';
   div.innerHTML = `
     ${inFav ? '<span class="star">⭐</span>' : ''}
-    <div class="cover">${cover ? `<img src="${cover}" alt="Cover of ${title}">` : `<span class="cover-fallback">${title[0]}</span>`}</div>
+    <div class="cover">${cover ? `<img src="${cover}" alt="Cover of ${escHtml(title)}">` : `<span class="cover-fallback">${escHtml(title[0])}</span>`}</div>
     <div class="info">
-      <div class="title">${title}</div>
-      <div class="author">${author}</div>
+      <div class="title">${escHtml(title)}</div>
+      <div class="author">${escHtml(author)}</div>
       <div class="actions">
         <button class="pill ${inWant?'active':''}" data-action="want">${inWant?'✓ Want':'+ Want'}</button>
         <button class="pill ${inRead?'active':''}" data-action="read">${inRead?'✓ Read':'+ Read'}</button>
+        <button class="pill ${inReading?'active':''}" data-action="reading">${inReading?'📖 Reading':'+ Reading'}</button>
         <button class="pill fav ${inFav?'active':''}" data-action="fav">${inFav?'★':'☆'}</button>
         ${activeTab !== 'search' ? '<button class="pill remove" data-action="remove">Remove</button>' : ''}
       </div>
       ${activeTab === 'read' ? starsHTML(rating) : ''}
+      ${activeTab !== 'search' ? `
+        <div class="note-area">
+          <div class="note-display" style="display:${note?'block':'none'}"></div>
+          <button class="note-toggle">${note ? '✏ Edit note' : '✏ Add note'}</button>
+          <div class="note-editor" style="display:none">
+            <textarea class="note-ta" placeholder="Your thoughts on this book…"></textarea>
+            <div class="note-btns">
+              <button class="note-save">Save</button>
+              <button class="note-cancel">Cancel</button>
+            </div>
+          </div>
+        </div>` : ''}
     </div>
   `;
+
+  // Set note text safely via textContent / value (not innerHTML)
+  if (activeTab !== 'search') {
+    div.querySelector('.note-display').textContent = note;
+    div.querySelector('.note-ta').value = note;
+  }
 
   div.querySelectorAll('button[data-action]').forEach(btn => {
     btn.addEventListener('click', async () => {
@@ -132,6 +225,18 @@ function renderCard(b, idKey){
           lists[action][k] = { title, author, cover_i, key: k };
         } else {
           delete lists[action][k];
+        }
+      } else if (action === 'reading') {
+        if (inReading) {
+          await fetch(`/api/reading/${encodeURIComponent(k)}`, { method: 'DELETE' });
+          readingList = readingList.filter(r => r.key !== k);
+        } else {
+          await fetch('/api/reading/add', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ key: k, title, author, cover_i, cover_isbn: b.cover_isbn || null }),
+          });
+          readingList.push({ key: k, title, author, cover_i, cover_isbn: b.cover_isbn || null, current_page: 0, total_pages: null });
         }
       } else if (action === 'remove') {
         await fetch(`/api/lists/${activeTab}/${encodeURIComponent(k)}`, { method: 'DELETE' });
@@ -159,84 +264,521 @@ function renderCard(b, idKey){
     });
   }
 
+  // ── Note interactions ──
+  if (activeTab !== 'search') {
+    const noteToggle  = div.querySelector('.note-toggle');
+    const noteEditor  = div.querySelector('.note-editor');
+    const noteDisplay = div.querySelector('.note-display');
+    const noteTa      = div.querySelector('.note-ta');
+    const noteSave    = div.querySelector('.note-save');
+    const noteCancel  = div.querySelector('.note-cancel');
+
+    noteToggle.addEventListener('click', () => {
+      noteEditor.style.display = 'block';
+      noteToggle.style.display = 'none';
+      noteTa.focus();
+      noteTa.selectionStart = noteTa.selectionEnd = noteTa.value.length;
+    });
+
+    noteCancel.addEventListener('click', () => {
+      noteTa.value = lists[activeTab]?.[k]?.note || '';
+      noteEditor.style.display = 'none';
+      noteToggle.style.display = '';
+    });
+
+    noteSave.addEventListener('click', async () => {
+      const newNote = noteTa.value.trim();
+      noteSave.disabled = true;
+      noteSave.textContent = 'Saving…';
+      await fetch('/api/lists/note', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ listType: activeTab, key: k, note: newNote }),
+      });
+      if (lists[activeTab]?.[k]) lists[activeTab][k].note = newNote || null;
+      noteDisplay.textContent = newNote;
+      noteDisplay.style.display = newNote ? 'block' : 'none';
+      noteToggle.textContent = newNote ? '✏ Edit note' : '✏ Add note';
+      noteEditor.style.display = 'none';
+      noteToggle.style.display = '';
+      noteSave.disabled = false;
+      noteSave.textContent = 'Save';
+    });
+  }
+
+  // Click on card body (not buttons) opens detail modal
+  if (activeTab === 'search') {
+    div.addEventListener('click', e => {
+      if (e.target.closest('button')) return;
+      showSearchModal(b);
+    });
+    div.style.cursor = 'pointer';
+  }
+
   return div;
+}
+
+const GENRE_COLORS = {
+  'Fantasy':                '#1B3A27',
+  'Thrillers':              '#5C1A1A',
+  'Adventure & Survival':   '#7A4A0C',
+  'History & True Crime':   '#1A2B4A',
+  'Contemporary Fiction':   '#3D1A5C',
+  'Warhammer 40K':          '#2A2A2A',
+  'Personal Growth':        '#1A4040',
+};
+const REC_MOOD_LABELS = {
+  'fast':'Fast Reads','dark':'Dark & Gritty','epic':'Epic Scale','cosy':'Cosy',
+  'literary':'Literary','true-story':'True Stories','mind-bending':'Mind-Bending',
+  'classic':'Classics','short':'Short Reads','action':'Action-Packed',
+  'horror':'Horror','emotional':'Emotional',
+};
+const MOOD_ORDER = ['fast','dark','epic','cosy','literary','true-story','mind-bending','classic','short','action','horror','emotional'];
+
+function recShelfTitles(){
+  return new Set([
+    ...Object.values(lists.want),
+    ...Object.values(lists.read),
+    ...Object.values(lists.fav),
+  ].map(b => (b.title || '').toLowerCase().trim()));
+}
+
+function computeGenreAffinity() {
+  // Weighted: fav=3, read=2, want=1
+  const titleScore = new Map();
+  [['fav',3],['read',2],['want',1]].forEach(([list, w]) => {
+    for (const b of Object.values(lists[list])) {
+      const t = (b.title||'').toLowerCase().trim();
+      titleScore.set(t, (titleScore.get(t) || 0) + w);
+    }
+  });
+  const affinity = {};
+  for (const section of recommendations) {
+    let score = 0;
+    for (const book of section.books)
+      score += titleScore.get((book.title||'').toLowerCase().trim()) || 0;
+    affinity[section.genre] = score;
+  }
+  return affinity;
+}
+
+function forYouPicks(affinity, shelfTitles) {
+  const totalAffinity = Object.values(affinity).reduce((a,b) => a+b, 0);
+  if (!totalAffinity) return [];
+  const picks = [];
+  for (const section of recommendations) {
+    const score = affinity[section.genre] || 0;
+    if (!score) continue;
+    const color = GENRE_COLORS[section.genre] || '#1F3D2E';
+    for (const book of section.books) {
+      if (!book.cover_i && !book.cover_isbn) continue;
+      if (shelfTitles.has((book.title||'').toLowerCase().trim())) continue;
+      picks.push({ book, genre: section.genre, color, score });
+    }
+  }
+  picks.sort((a, b) => b.score - a.score);
+  return picks.slice(0, 8);
 }
 
 function renderRecommendations(){
   const content = document.getElementById('content');
   content.innerHTML = '';
-  if (!recommendations.length) {
+  if (!recommendations.length){
     content.innerHTML = '<div class="empty">Recommendations failed to load.</div>';
     return;
   }
 
-  const labelMap = {
-    safest:     { text: 'Safest Bet',      cls: 'label-safest' },
-    polarizing: { text: 'Polarizing',      cls: 'label-polarizing' },
-    adjacent:   { text: 'Sci-fi Adjacent', cls: 'label-adjacent' },
-    commitment: { text: 'Big Commitment',  cls: 'label-commitment' }
-  };
+  const affinity    = computeGenreAffinity();
+  const shelfTitles = recShelfTitles();
+  const picks       = forYouPicks(affinity, shelfTitles);
 
-  const container = document.createElement('div');
-  container.className = 'recs-container';
+  function onShelf(b){ return shelfTitles.has((b.title||'').toLowerCase().trim()); }
 
-  for (const section of recommendations) {
-    const sect = document.createElement('div');
-    sect.className = 'genre-section';
+  const scored = recommendations.map(s => ({
+    ...s,
+    _score: affinity[s.genre] || 0,
+    _count: s.books.filter(b => shelfTitles.has((b.title||'').toLowerCase().trim())).length,
+  })).sort((a,b) => b._score - a._score);
 
-    const h = document.createElement('h2');
-    h.className = 'genre-header';
-    h.textContent = section.genre;
-    sect.appendChild(h);
+  const presentMoods = MOOD_ORDER.filter(m =>
+    recommendations.some(s => s.books.some(b => (b.moods||[]).includes(m)))
+  );
 
-    const list = document.createElement('div');
-    list.className = 'rec-list';
+  let activeMood = 'all';
+  const wrap = document.createElement('div');
 
-    for (const book of section.books) {
-      const lm = labelMap[book.label] || {};
-      const allKeys = [
-        ...Object.keys(lists.want),
-        ...Object.keys(lists.read),
-        ...Object.keys(lists.fav)
-      ];
-      const inAnyList = allKeys.some(k => {
-        const entry = lists.want[k] || lists.read[k] || lists.fav[k];
-        return entry && entry.title === book.title;
-      });
+  const moodBar = document.createElement('div');
+  moodBar.className = 'mood-bar';
+  [['all','All'], ...presentMoods.map(m=>[m, REC_MOOD_LABELS[m]])].forEach(([m, label]) => {
+    const chip = document.createElement('button');
+    chip.className = 'mood-chip' + (m==='all'?' active':'');
+    chip.textContent = label; chip.dataset.mood = m;
+    moodBar.appendChild(chip);
+  });
+  moodBar.addEventListener('click', e => {
+    const chip = e.target.closest('.mood-chip'); if(!chip) return;
+    activeMood = chip.dataset.mood;
+    moodBar.querySelectorAll('.mood-chip').forEach(c => c.classList.toggle('active', c===chip));
+    renderSections();
+  });
+  wrap.appendChild(moodBar);
 
-      const item = document.createElement('div');
-      item.className = 'rec-item' + (inAnyList ? ' rec-item--saved' : '');
-      item.innerHTML = `
-        <div class="rec-info">
-          <div class="rec-title">
-            ${book.title}
-            ${book.series ? `<span class="rec-series">${book.series}</span>` : ''}
-            ${lm.text ? `<span class="label-badge ${lm.cls}">${lm.text}</span>` : ''}
-            ${inAnyList ? '<span class="label-badge label-saved">On your shelf</span>' : ''}
-          </div>
-          <div class="rec-author">${book.author}</div>
-          <div class="rec-blurb">${book.blurb}</div>
-        </div>
-        <div class="rec-actions">
-          <button class="btn-find">Find this book →</button>
-        </div>
-      `;
+  const sectionsWrap = document.createElement('div');
+  wrap.appendChild(sectionsWrap);
+  content.appendChild(wrap);
 
-      item.querySelector('.btn-find').addEventListener('click', () => {
-        document.getElementById('searchInput').value = `${book.title} ${book.author}`;
-        activeTab = 'search';
-        setActiveTabUI('search');
-        doSearch();
-      });
+  // Titles shown in "For You" — excluded from genre sections to avoid repeats
+  const forYouTitles = new Set(picks.map(p => (p.book.title||'').toLowerCase().trim()));
 
-      list.appendChild(item);
+  // Client-side cache for OL genre fetch results
+  const olGenreCache = new Map();
+
+  async function fetchOlGenreBooks(olQuery, excludeTitles) {
+    if (!olGenreCache.has(olQuery)) {
+      try {
+        const res  = await fetch(`/api/discover/genre?q=${encodeURIComponent(olQuery)}`);
+        const docs = await res.json();
+        olGenreCache.set(olQuery, Array.isArray(docs) ? docs : []);
+      } catch { olGenreCache.set(olQuery, []); }
     }
-
-    sect.appendChild(list);
-    container.appendChild(sect);
+    return olGenreCache.get(olQuery).filter(b =>
+      b.cover_i && !excludeTitles.has((b.title||'').toLowerCase().trim())
+    );
   }
 
-  content.appendChild(container);
+  function makeRecCard(book, genre, color, isOlBook = false) {
+    const shelved = onShelf(book);
+    const authorStr = book.author || (book.author_name && book.author_name[0]) || '';
+    const url = book.cover_i
+      ? `https://covers.openlibrary.org/b/id/${book.cover_i}-M.jpg`
+      : book.cover_isbn
+      ? `https://covers.openlibrary.org/b/isbn/${book.cover_isbn}-M.jpg`
+      : null;
+    const card = document.createElement('div');
+    card.className = 'rec-card' + (shelved ? ' rec-card--shelved' : '');
+    card.innerHTML = `
+      <div class="rec-card-cover" style="background:${color}">
+        ${url ? `<img src="${url}" alt="${escHtml(book.title)}" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">` : ''}
+        <span class="rec-card-initial" ${url ? 'style="display:none"' : ''}>${escHtml((book.title||'?')[0])}</span>
+      </div>
+      <div class="rec-card-info">
+        <div class="rec-card-title">${escHtml(book.title)}</div>
+        <div class="rec-card-author">${escHtml(authorStr)}</div>
+      </div>
+      ${shelved ? '<div class="rec-card-badge">✓ Shelved</div>' : ''}
+    `;
+    card.addEventListener('click', () =>
+      isOlBook ? showSearchModal(book) : showRecModal(book, genre, color)
+    );
+    return card;
+  }
+
+  let renderEpoch = 0;
+
+  function renderSections(){
+    const epoch = ++renderEpoch;
+    sectionsWrap.innerHTML = '';
+
+    // "For You" — only when user has shelf activity
+    if (picks.length) {
+      const filtered = activeMood === 'all'
+        ? picks
+        : picks.filter(p => (p.book.moods||[]).includes(activeMood));
+      if (filtered.length) {
+        const sect = document.createElement('div');
+        sect.className = 'genre-section';
+        const h = document.createElement('h2');
+        h.className = 'genre-header';
+        h.innerHTML = `<span class="genre-dot" style="background:var(--gold)"></span>For You <span class="genre-match-tag">based on your shelf</span>`;
+        sect.appendChild(h);
+        const grid = document.createElement('div');
+        grid.className = 'rec-genre-grid';
+        for (const { book, genre, color } of filtered)
+          grid.appendChild(makeRecCard(book, genre, color));
+        sect.appendChild(grid);
+        sectionsWrap.appendChild(sect);
+      }
+    }
+
+    for (const section of scored){
+      const moodOk = b => activeMood === 'all' || (b.moods||[]).includes(activeMood);
+
+      // Exclude books shown in "For You" to prevent repeats
+      const notForYou = b => !forYouTitles.has((b.title||'').toLowerCase().trim());
+
+      const unshelved = section.books.filter(b =>
+        (b.cover_i || b.cover_isbn) && !onShelf(b) && notForYou(b) && moodOk(b)
+      );
+      const shelvedBks = section.books.filter(b =>
+        (b.cover_i || b.cover_isbn) && onShelf(b) && notForYou(b) && moodOk(b)
+      );
+      const books = [...unshelved, ...shelvedBks];
+      if (!books.length && !section.olQuery) continue;
+
+      const color = GENRE_COLORS[section.genre] || '#1F3D2E';
+      const sect  = document.createElement('div');
+      sect.className = 'genre-section';
+      const h = document.createElement('h2');
+      h.className = 'genre-header';
+      h.innerHTML = `<span class="genre-dot" style="background:${color}"></span>${escHtml(section.genre)}`;
+      if (section._count > 0)
+        h.innerHTML += ` <span class="genre-match-tag">${section._count} on your shelf</span>`;
+      sect.appendChild(h);
+
+      const grid = document.createElement('div');
+      grid.className = 'rec-genre-grid';
+      for (const book of books)
+        grid.appendChild(makeRecCard(book, section.genre, color));
+      sect.appendChild(grid);
+      sectionsWrap.appendChild(sect);
+
+      // Pad to ~20 with OL books (only in "all" mood — OL books have no mood tags)
+      const TARGET = 20;
+      if (activeMood === 'all' && section.olQuery && books.length < TARGET) {
+        const needed = TARGET - books.length;
+        const shownTitles = new Set([
+          ...forYouTitles,
+          ...books.map(b => (b.title||'').toLowerCase().trim()),
+        ]);
+        const capturedGrid = grid;
+        fetchOlGenreBooks(section.olQuery, shownTitles).then(olBooks => {
+          if (renderEpoch !== epoch) return; // user changed mood — discard
+          const toAdd = olBooks.slice(0, needed);
+          for (const b of toAdd)
+            capturedGrid.appendChild(makeRecCard(b, section.genre, color, true));
+        });
+      }
+    }
+    if (!sectionsWrap.children.length)
+      sectionsWrap.innerHTML = '<div class="empty">No books match this filter.</div>';
+  }
+
+  renderSections();
+}
+
+// ── Unified book detail modal ──────────────────────────────────────────────
+// Works for both rec books (no OL key yet) and search result books (already have key).
+function showBookModal({ title, author, cover_i, cover_isbn, blurb, series, moods, genre,
+                         olBook = null, accentColor = '#1F3D2E' }) {
+  const imgUrl = cover_i
+    ? `https://covers.openlibrary.org/b/id/${cover_i}-L.jpg`
+    : cover_isbn
+    ? `https://covers.openlibrary.org/b/isbn/${cover_isbn}-L.jpg`
+    : null;
+
+  const overlay = document.createElement('div');
+  overlay.className = 'rec-modal-overlay';
+  overlay.innerHTML = `
+    <div class="rec-modal" role="dialog" aria-modal="true">
+      <button class="rec-modal-close" aria-label="Close">✕</button>
+      <div class="rec-modal-inner">
+        <div class="rec-modal-cover" style="background:${accentColor}">
+          ${imgUrl ? `<img src="${imgUrl}" alt="${escHtml(title)}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">` : ''}
+          <span class="rec-modal-initial" ${imgUrl ? 'style="display:none"' : ''}>${escHtml((title||'?')[0])}</span>
+        </div>
+        <div class="rec-modal-info">
+          ${genre ? `<div class="rec-modal-genre">${escHtml(genre)}</div>` : ''}
+          <div class="rec-modal-title">${escHtml(title)}</div>
+          ${series ? `<div class="rec-modal-series">${escHtml(series)}</div>` : ''}
+          <div class="rec-modal-author">by ${escHtml(author||'Unknown')}</div>
+        </div>
+      </div>
+      ${blurb ? `<div class="rec-modal-blurb">${escHtml(blurb)}</div>` : ''}
+      <div class="rec-modal-description" id="modalDesc" style="display:none"></div>
+      ${(moods||[]).filter(m=>REC_MOOD_LABELS[m]).length ? `
+        <div class="rec-modal-moods">
+          ${(moods||[]).filter(m=>REC_MOOD_LABELS[m]).map(m=>`<span class="rec-mood-tag">${REC_MOOD_LABELS[m]}</span>`).join('')}
+        </div>` : ''}
+      <div class="rec-modal-actions" id="modalActions">
+        <span style="font-size:13px;color:#857c68;font-style:italic;">Loading…</span>
+      </div>
+    </div>
+  `;
+
+  function closeModal() {
+    overlay.remove();
+    document.removeEventListener('keydown', escHandler);
+  }
+  function escHandler(e) { if (e.key === 'Escape') closeModal(); }
+  overlay.addEventListener('click', e => { if (e.target === overlay) closeModal(); });
+  overlay.querySelector('.rec-modal-close').addEventListener('click', closeModal);
+  document.addEventListener('keydown', escHandler);
+  document.body.appendChild(overlay);
+
+  const actionsEl = overlay.querySelector('#modalActions');
+
+  // We render buttons with whatever key we have immediately, then upgrade to
+  // the canonical OL key in the background so buttons are never hidden behind "Loading…".
+  let currentKey    = olBook ? bookKey(olBook) : null;
+  let currentTitle  = (olBook ? olBook.title  : null) || title;
+  let currentAuthor = (olBook ? (olBook.author_name||[])[0] : null) || author || '';
+  let currentCover  = (olBook ? olBook.cover_i : null) || cover_i || null;
+
+  function inList(list) { return !!(currentKey && lists[list][currentKey]); }
+  function inReading()  { return !!(currentKey && readingList.some(r => r.key === currentKey)); }
+
+  function renderButtons() {
+    actionsEl.innerHTML = '';
+    const mkBtn = (label, cls, handler) => {
+      const b = document.createElement('button');
+      b.textContent = label; b.className = cls;
+      b.addEventListener('click', handler);
+      actionsEl.appendChild(b);
+    };
+
+    if (!currentKey) {
+      // Still resolving — show disabled placeholders so layout doesn't jump
+      ['+ Want to Read','+ Reading','+ Mark as Read','☆ Favourite'].forEach((lbl, i) => {
+        const cls = ['rec-modal-btn-want','rec-modal-btn-reading','rec-modal-btn-read','rec-modal-btn-fav'][i];
+        const b = document.createElement('button');
+        b.textContent = lbl; b.className = cls; b.disabled = true;
+        b.style.opacity = '0.45';
+        actionsEl.appendChild(b);
+      });
+      return;
+    }
+
+    const k = currentKey, bT = currentTitle, bA = currentAuthor, bC = currentCover, bI = cover_isbn || null;
+
+    mkBtn(
+      inList('want') ? '✓ Want to Read' : '+ Want to Read',
+      'rec-modal-btn-want' + (inList('want') ? ' active' : ''),
+      async () => {
+        const res = await fetch('/api/lists/want/toggle', {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ key:k, title:bT, author:bA, cover_i:bC })
+        });
+        const r = await res.json();
+        if (r.active) lists.want[k] = { title:bT, author:bA, cover_i:bC, key:k };
+        else delete lists.want[k];
+        updateCounts(); renderButtons();
+      }
+    );
+
+    mkBtn(
+      inReading() ? '📖 Reading' : '+ Reading',
+      'rec-modal-btn-reading' + (inReading() ? ' active' : ''),
+      async () => {
+        if (inReading()) {
+          await fetch(`/api/reading/${encodeURIComponent(k)}`, { method:'DELETE' });
+          readingList = readingList.filter(r => r.key !== k);
+        } else {
+          await fetch('/api/reading/add', {
+            method:'POST', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({ key:k, title:bT, author:bA, cover_i:bC, cover_isbn:bI })
+          });
+          readingList.push({ key:k, title:bT, author:bA, cover_i:bC, cover_isbn:bI, current_page:0, total_pages:null });
+        }
+        updateCounts(); renderButtons();
+      }
+    );
+
+    mkBtn(
+      inList('read') ? '✓ Already Read' : '+ Mark as Read',
+      'rec-modal-btn-read' + (inList('read') ? ' active' : ''),
+      async () => {
+        const res = await fetch('/api/lists/read/toggle', {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ key:k, title:bT, author:bA, cover_i:bC })
+        });
+        const r = await res.json();
+        if (r.active) lists.read[k] = { title:bT, author:bA, cover_i:bC, key:k };
+        else delete lists.read[k];
+        updateCounts(); renderButtons();
+      }
+    );
+
+    mkBtn(
+      inList('fav') ? '★ Favourited' : '☆ Favourite',
+      'rec-modal-btn-fav' + (inList('fav') ? ' active' : ''),
+      async () => {
+        const res = await fetch('/api/lists/fav/toggle', {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ key:k, title:bT, author:bA, cover_i:bC })
+        });
+        const r = await res.json();
+        if (r.active) lists.fav[k] = { title:bT, author:bA, cover_i:bC, key:k };
+        else delete lists.fav[k];
+        updateCounts(); renderButtons();
+      }
+    );
+  }
+
+  // Render immediately — if we already have an olBook we're done; otherwise show
+  // faded placeholders and upgrade to the real OL key in the background.
+  renderButtons();
+
+  const descEl = overlay.querySelector('#modalDesc');
+
+  function showDescription(text) {
+    if (!text || !descEl) return;
+    // Trim to ~500 chars and strip markdown-style links
+    const clean = text.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1').trim();
+    descEl.textContent = clean.length > 520 ? clean.slice(0, 520) + '…' : clean;
+    descEl.style.display = '';
+  }
+
+  if (olBook) {
+    // Show first_sentence immediately while full description loads
+    const fs = olBook.first_sentence;
+    if (fs && fs.length) {
+      const s = typeof fs[0] === 'string' ? fs[0] : (fs[0]?.value || '');
+      if (s) showDescription(s);
+    }
+    // Fetch full description from OL work API
+    const workKey = (olBook.key || '').replace('/works/', '');
+    if (workKey) {
+      fetch(`/api/book/${workKey}/description`)
+        .then(r => r.json())
+        .then(d => { if (d.description) showDescription(d.description); })
+        .catch(() => {});
+    }
+  } else {
+    // Rec book — find OL key in background, then fetch description
+    (async () => {
+      try {
+        const res     = await fetch(`/api/search?q=${encodeURIComponent(title + ' ' + (author||''))}`);
+        const results = await res.json();
+        const ob      = Array.isArray(results) ? results[0] : null;
+        if (ob) {
+          currentKey    = bookKey(ob);
+          currentTitle  = ob.title || title;
+          currentAuthor = (ob.author_name||[])[0] || author || '';
+          currentCover  = ob.cover_i || cover_i || null;
+          renderButtons(); // upgrade from placeholders to live buttons
+          // Fetch description now that we have the OL key
+          const wk = (ob.key || '').replace('/works/', '');
+          if (wk) {
+            fetch(`/api/book/${wk}/description`)
+              .then(r => r.json())
+              .then(d => { if (d.description) showDescription(d.description); })
+              .catch(() => {});
+          }
+        }
+      } catch (_) {}
+    })();
+  }
+}
+
+function showRecModal(book, genre, genreColor){
+  showBookModal({
+    title: book.title, author: book.author,
+    cover_i: book.cover_i, cover_isbn: book.cover_isbn,
+    blurb: book.blurb, series: book.series, moods: book.moods,
+    genre, accentColor: genreColor,
+  });
+}
+
+function showSearchModal(book) {
+  const author = (book.author_name||[])[0] || book.author || '';
+  const blurb  = book.first_publish_year
+    ? `First published ${book.first_publish_year}${book.publisher ? ' · ' + (Array.isArray(book.publisher) ? book.publisher[0] : book.publisher) : ''}${book.number_of_pages_median ? ' · ' + book.number_of_pages_median + ' pages' : ''}`
+    : null;
+  showBookModal({
+    title: book.title, author,
+    cover_i: book.cover_i, cover_isbn: null,
+    blurb, olBook: book, accentColor: '#1F3D2E',
+  });
 }
 
 async function doSearch(){
@@ -251,13 +793,192 @@ async function doSearch(){
     if (res.status === 401) { window.location.href = '/index.html'; return; }
     lastResults = await res.json();
     renderActiveTab();
+    prefetchSearchCovers(); // background cover lookup for results without covers
   } catch (e) {
     content.innerHTML = '<div class="empty">Search failed. Check your connection and try again.</div>';
   }
 }
 
+async function prefetchSearchCovers(){
+  const snapshot = lastResults; // capture reference so stale re-renders don't fire
+  let updated = false;
+  await Promise.all(
+    snapshot
+      .filter(b => !b.cover_i && !b.cover_isbn)
+      .map(async b => {
+        const author = b.author_name ? b.author_name[0] : '';
+        const result = await lookupCover({ title: b.title, author });
+        if (result.cover_i || result.cover_isbn) {
+          b.cover_i    = result.cover_i;
+          b.cover_isbn = result.cover_isbn;
+          updated = true;
+        }
+      })
+  );
+  if (updated && activeTab === 'search' && lastResults === snapshot) renderActiveTab();
+}
+
+function renderReading(){
+  const content = document.getElementById('content');
+  content.innerHTML = '';
+  const year = new Date().getFullYear();
+  const goal  = readingGoal?.goal  ?? null;
+  const doneN = readingGoal?.read  ?? 0;
+
+  // ── Goal widget ──
+  const goalDiv = document.createElement('div');
+  goalDiv.className = 'goal-widget';
+
+  const pct  = goal ? Math.min(100, Math.round((doneN / goal) * 100)) : 0;
+  const r = 34, circ = 2 * Math.PI * r;
+  const dash = goal ? circ - (pct / 100) * circ : circ;
+
+  goalDiv.innerHTML = `
+    <div class="goal-ring-wrap">
+      <svg width="80" height="80" viewBox="0 0 80 80">
+        <circle cx="40" cy="40" r="${r}" fill="none" stroke="#e8e0cc" stroke-width="7"/>
+        <circle cx="40" cy="40" r="${r}" fill="none" stroke="#1F3D2E" stroke-width="7"
+          stroke-dasharray="${circ.toFixed(1)}" stroke-dashoffset="${dash.toFixed(1)}"
+          stroke-linecap="round" transform="rotate(-90 40 40)"
+          style="transition:stroke-dashoffset 0.4s ease"/>
+      </svg>
+      <div class="goal-ring-label">
+        <span class="goal-ring-num">${doneN}</span>
+        <span class="goal-ring-denom">${goal ? `of ${goal}` : 'read'}</span>
+      </div>
+    </div>
+    <div class="goal-info">
+      <div class="goal-title">${year} Reading Goal</div>
+      <div class="goal-sub">${
+        goal
+          ? doneN >= goal
+            ? `Goal complete! You've read ${doneN} book${doneN !== 1 ? 's' : ''} this year.`
+            : `${doneN} of ${goal} books — ${goal - doneN} to go`
+          : 'No goal set yet.'
+      }</div>
+      <div class="goal-set-row">
+        <input class="goal-input" id="goalInput" type="number" min="1" max="9999"
+          placeholder="${goal ?? 'books'}" value="${goal ?? ''}">
+        <button class="goal-save-btn" id="goalSaveBtn">${goal ? 'Update goal' : 'Set goal'}</button>
+      </div>
+    </div>
+  `;
+  content.appendChild(goalDiv);
+
+  document.getElementById('goalSaveBtn').addEventListener('click', async () => {
+    const val = parseInt(document.getElementById('goalInput').value, 10);
+    if (!val || val < 1) return;
+    await fetch('/api/goals', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ year, goal_books: val }),
+    });
+    await loadReading();
+    renderReading();
+  });
+
+  // ── Currently reading section ──
+  const secTitle = document.createElement('h2');
+  secTitle.className = 'reading-section-title';
+  secTitle.textContent = 'Currently Reading';
+  content.appendChild(secTitle);
+
+  if (!readingList.length) {
+    const empty = document.createElement('div');
+    empty.className = 'reading-empty';
+    empty.innerHTML = `You're not reading anything right now.<br><span class="reading-add-hint">Search for a book and click "+ Reading" to start tracking.</span>`;
+    content.appendChild(empty);
+    return;
+  }
+
+  const grid = document.createElement('div');
+  grid.className = 'reading-grid';
+
+  for (const book of readingList) {
+    const coverUrl = book.cover_i
+      ? `https://covers.openlibrary.org/b/id/${book.cover_i}-M.jpg`
+      : book.cover_isbn
+      ? `https://covers.openlibrary.org/b/isbn/${book.cover_isbn}-M.jpg`
+      : null;
+    const cp = book.current_page || 0;
+    const tp = book.total_pages || 0;
+    const pctPages = tp > 0 ? Math.min(100, Math.round((cp / tp) * 100)) : 0;
+    const started = book.started_at ? new Date(book.started_at).toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' }) : '';
+
+    const card = document.createElement('div');
+    card.className = 'reading-card';
+    card.innerHTML = `
+      <div class="reading-cover" style="background:#1F3D2E">
+        ${coverUrl
+          ? `<img src="${coverUrl}" alt="${escHtml(book.title)}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`
+          : ''}
+        <span class="reading-cover-initial" ${coverUrl ? 'style="display:none"' : ''}>${escHtml((book.title||'?')[0])}</span>
+      </div>
+      <div class="reading-body">
+        <div class="reading-title">${escHtml(book.title)}</div>
+        <div class="reading-author">${escHtml(book.author || 'Unknown author')}</div>
+        ${started ? `<div class="reading-started">Started ${started}</div>` : ''}
+        <div class="reading-progress-label">
+          <span>${tp > 0 ? `Page ${cp} of ${tp}` : cp > 0 ? `Page ${cp}` : 'No page set yet'}</span>
+          <span>${tp > 0 ? `${pctPages}%` : ''}</span>
+        </div>
+        <div class="reading-bar-track">
+          <div class="reading-bar-fill" style="width:${pctPages}%"></div>
+        </div>
+        <div class="reading-page-row">
+          <input class="reading-page-input" type="number" min="0" placeholder="Page" value="${cp || ''}">
+          <span class="reading-page-sep">of</span>
+          <input class="reading-page-total" type="number" min="1" placeholder="Total" value="${tp || ''}">
+          <button class="reading-update-btn">Update</button>
+        </div>
+        <div class="reading-actions">
+          <button class="reading-finish-btn">Finished</button>
+          <button class="reading-remove-btn">Remove</button>
+        </div>
+      </div>
+    `;
+
+    // Update progress
+    card.querySelector('.reading-update-btn').addEventListener('click', async () => {
+      const cpVal = parseInt(card.querySelector('.reading-page-input').value, 10);
+      const tpVal = parseInt(card.querySelector('.reading-page-total').value, 10);
+      await fetch('/api/reading/progress', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key: book.key, current_page: cpVal || 0, total_pages: tpVal || null }),
+      });
+      await loadReading();
+      renderReading();
+    });
+
+    // Finish
+    card.querySelector('.reading-finish-btn').addEventListener('click', async () => {
+      await fetch('/api/reading/finish', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key: book.key, title: book.title, author: book.author, cover_i: book.cover_i }),
+      });
+      await Promise.all([loadLists(), loadReading()]);
+      updateCounts();
+      renderReading();
+    });
+
+    // Remove
+    card.querySelector('.reading-remove-btn').addEventListener('click', async () => {
+      await fetch(`/api/reading/${encodeURIComponent(book.key)}`, { method: 'DELETE' });
+      await loadReading();
+      updateCounts();
+      renderReading();
+    });
+
+    grid.appendChild(card);
+  }
+  content.appendChild(grid);
+}
+
 function renderActiveTab(){
   if (activeTab === 'recs') { renderRecommendations(); return; }
+  if (activeTab === 'reading') { renderReading(); return; }
 
   const content = document.getElementById('content');
   content.innerHTML = '';
@@ -294,9 +1015,13 @@ function setActiveTabUI(tab){
 }
 
 document.querySelectorAll('.tab').forEach(t => {
-  t.addEventListener('click', () => {
+  t.addEventListener('click', async () => {
     activeTab = t.dataset.tab;
     setActiveTabUI(activeTab);
+    if (activeTab === 'reading') {
+      await loadReading();
+      updateCounts();
+    }
     renderActiveTab();
   });
 });
@@ -306,134 +1031,171 @@ document.getElementById('searchInput').addEventListener('keydown', e => {
   if (e.key === 'Enter') doSearch();
 });
 
-const PAGE_WORDS = [
-  // Books actually read
-  'Silent Patient','Spirit Bear','Bloody Rose',"Can't Hurt Me",
-  'Kings of the Wyld','The Only One Left',
-  // Characters & names from those books
-  'Alicia','Gabriel','Cole','Edwin','Goggins','Clay','Rose','Wren','Lena',
-  // Themes from those books
-  'Silence','Confess','Heal','Callous','Limits','Legend','Keeper',
-  'Bear','Saga','Endure','Island','Trial','Mercy',
-  // Classic page markers
-  'Ch. I','Ch. II','Ch. III','Prologue','Epilogue','Part I','Part II',
-  // Page refs
-  'p. 1','p. 42','p. 99','p. 314',
-  // Drop-cap initials (first letters of each book title)
-  'S','B','C','K','T','A','G','D','W','R',
-];
+// ── ISBN barcode scanner (multi-scan) ─────────────────────────────────────
+document.getElementById('scanBtn').addEventListener('click', openScanner);
 
-function createFallingPages(){
-  for(let i = 0; i < 25; i++){
-    const el  = document.createElement('div');
-    const w   = Math.random()*26+22;
-    const h   = w*(1.3+Math.random()*0.2);
-    const x   = Math.random()*48;
-    const dur = (Math.random()*12+18) * 1000;  // 18–30s — slow, drifting float
-    const del = -(Math.random()*dur);
-    const r0  = (Math.random()-0.5)*40;
-    const r1  = r0+(Math.random()-0.5)*80;
-    const lineGap = Math.floor(h * 0.22);
+async function openScanner() {
+  if (!navigator.mediaDevices?.getUserMedia) {
+    const isbn = prompt('Enter ISBN to search:');
+    if (isbn?.trim()) { document.getElementById('searchInput').value = isbn.trim(); doSearch(); }
+    return;
+  }
 
-    // Two overlapping sine waves = irregular gusts rather than mechanical pendulum
-    const amp1   = Math.random()*50+35;
-    const amp2   = amp1*(Math.random()*0.3+0.15);   // secondary gust: 15–45% of main
-    const ph1    = Math.random()*Math.PI*2;
-    const ph2    = Math.random()*Math.PI*2;
-    const c1     = Math.random()*0.8+1.0;            // 1.0–1.8 main cycles
-    const c2     = Math.random()*1.2+2.2;            // 2.2–3.4 faster secondary cycles
+  const scannedISBNs = [];    // order-preserving list
+  const scannedSet   = new Set();
+  const resolved     = new Map(); // isbn → olBook
+  let stream, interval;
 
-    // s*|s| instead of plain sin: hits peak and recovers 2× faster so the
-    // pause at each direction change is far shorter while motion stays smooth
-    const s1 = t => Math.sin(ph1 + t*Math.PI*2*c1);
-    const s2 = t => Math.sin(ph2 + t*Math.PI*2*c2);
-    // s³ (odd power, preserves sign): 3× faster recovery at turning points
-    const drift = t => amp1*Math.pow(s1(t),3) + amp2*Math.pow(s2(t),3);
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:1000;display:flex;flex-direction:column;align-items:center;padding:20px 16px;overflow-y:auto;gap:10px;';
+  overlay.innerHTML = `
+    <p style="color:#fff;font-family:Georgia,serif;font-size:15px;margin:0;text-align:center;">Point camera at a barcode — keep scanning!</p>
+    <video id="scanVideo" style="width:min(340px,90vw);border-radius:8px;background:#111;border:3px solid transparent;transition:border-color 0.25s;flex-shrink:0;" autoplay playsinline muted></video>
+    <div id="scanStatus" style="color:#bbb;font-family:Georgia,serif;font-size:13px;text-align:center;min-height:18px;"></div>
+    <div id="scanList" style="width:min(340px,90vw);display:flex;flex-direction:column;gap:6px;"></div>
+    <div style="display:flex;gap:10px;padding-top:4px;flex-shrink:0;">
+      <button id="scanDone" style="display:none;padding:11px 22px;background:#1F3D2E;color:#fff;border:none;border-radius:4px;font-family:Georgia,serif;font-size:14px;font-weight:600;cursor:pointer;"></button>
+      <button id="scanCancel" style="padding:11px 22px;background:#fff;border:none;border-radius:4px;font-family:Georgia,serif;font-size:14px;cursor:pointer;">Cancel</button>
+    </div>
+  `;
+  document.body.appendChild(overlay);
 
-    // Derivative of s³ = 3s²·s′
-    const driftVel = t => {
-      const v = amp1*3*s1(t)*s1(t)*Math.cos(ph1+t*Math.PI*2*c1)*Math.PI*2*c1
-              + amp2*3*s2(t)*s2(t)*Math.cos(ph2+t*Math.PI*2*c2)*Math.PI*2*c2;
-      const maxV = amp1*3*Math.PI*2*c1 + amp2*3*Math.PI*2*c2;
-      return v / maxV;
-    };
+  const videoEl   = overlay.querySelector('#scanVideo');
+  const statusEl  = overlay.querySelector('#scanStatus');
+  const listEl    = overlay.querySelector('#scanList');
+  const doneBtn   = overlay.querySelector('#scanDone');
+  const cancelBtn = overlay.querySelector('#scanCancel');
 
-    const rotAt = t => r0+(r1-r0)*t + driftVel(t)*15;  // tilt into direction of motion
-    const rxAt  = t => Math.sin(t*Math.PI*5+ph1)*10;   // page flex
-    const ryAt  = t => driftVel(t)*7;                  // face into wind
-    const tf    = (t, ty) =>
-      `perspective(500px) translateY(${ty}) translateX(${drift(t).toFixed(1)}px) rotateZ(${rotAt(t).toFixed(1)}deg) rotateX(${rxAt(t).toFixed(1)}deg) rotateY(${ryAt(t).toFixed(1)}deg)`;
+  function cleanup() {
+    clearInterval(interval);
+    if (stream) stream.getTracks().forEach(t => t.stop());
+    overlay.remove();
+  }
 
-    el.style.cssText = `
-      position:fixed;left:${x}%;top:0;
-      width:${w}px;height:${h}px;
-      background:rgba(242,236,221,0.82);
-      background-image:
-        linear-gradient(90deg,rgba(0,0,0,0.04) 0%,transparent 20%,transparent 80%,rgba(0,0,0,0.04) 100%),
-        repeating-linear-gradient(transparent,transparent 4px,rgba(31,61,46,0.12) 4px,rgba(31,61,46,0.12) 5px);
-      background-position:0 0,0 ${lineGap}px;
-      border:1.5px solid rgba(31,61,46,0.38);
-      border-radius:1px 3px 2px 1px;
-      box-shadow:0 3px 10px rgba(31,61,46,0.22);
-      pointer-events:none;z-index:0;overflow:hidden;
+  cancelBtn.addEventListener('click', cleanup);
+
+  function updateDoneBtn() {
+    const n = scannedISBNs.length;
+    doneBtn.style.display = n ? '' : 'none';
+    doneBtn.textContent   = `Done — add ${n} book${n !== 1 ? 's' : ''}`;
+  }
+
+  function flashGreen() {
+    videoEl.style.borderColor = '#4caf50';
+    setTimeout(() => { videoEl.style.borderColor = 'transparent'; }, 400);
+  }
+
+  function addEntry(isbn) {
+    const row = document.createElement('div');
+    row.style.cssText = 'background:rgba(255,255,255,0.10);border-radius:6px;padding:8px 12px;display:flex;gap:10px;align-items:center;';
+    row.innerHTML = `
+      <span style="color:#4caf50;font-size:15px;flex-shrink:0;">✓</span>
+      <div style="flex:1;min-width:0;">
+        <div data-title style="color:#fff;font-family:Georgia,serif;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${isbn}</div>
+        <div data-author style="color:#999;font-family:Georgia,serif;font-size:11px;font-style:italic;"></div>
+      </div>
     `;
+    listEl.appendChild(row);
 
-    // Dog-eared corner on ~40% of pages
-    if (Math.random() > 0.6) {
-      const corner = document.createElement('div');
-      const cs = Math.floor(Math.min(w, h) * 0.28);
-      corner.style.cssText = `
-        position:absolute;bottom:0;right:0;
-        width:${cs}px;height:${cs}px;
-        background:rgba(31,61,46,0.13);
-        clip-path:polygon(100% 0,100% 100%,0 100%);
-      `;
-      el.appendChild(corner);
+    // Resolve title in background
+    fetch(`/api/search?q=isbn:${isbn}`)
+      .then(r => r.json())
+      .then(docs => {
+        const ob = Array.isArray(docs) && docs[0];
+        if (ob) {
+          resolved.set(isbn, ob);
+          row.querySelector('[data-title]').textContent  = ob.title || isbn;
+          row.querySelector('[data-author]').textContent = (ob.author_name||[])[0] || '';
+        }
+      })
+      .catch(() => {});
+  }
+
+  doneBtn.addEventListener('click', () => {
+    cleanup();
+    showScannedResults(scannedISBNs, resolved);
+  });
+
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+    videoEl.srcObject = stream;
+    await videoEl.play();
+
+    if (!('BarcodeDetector' in window)) {
+      statusEl.textContent = 'Barcode scanning not supported in this browser.';
+      cancelBtn.textContent = 'Enter ISBN manually';
+      cancelBtn.addEventListener('click', () => {
+        cleanup();
+        const isbn = prompt('Enter ISBN:');
+        if (isbn?.trim()) { document.getElementById('searchInput').value = isbn.trim(); doSearch(); }
+      }, { once: true });
+      return;
     }
 
-    // Text on ~65% of pages
-    if (Math.random() > 0.35) {
-      const txt = document.createElement('div');
-      const word = PAGE_WORDS[Math.floor(Math.random()*PAGE_WORDS.length)];
-      const fs   = Math.max(6, Math.floor(w * 0.20));
-      txt.style.cssText = `
-        font-family:'Fraunces',serif;
-        font-size:${fs}px;
-        color:rgba(31,61,46,0.55);
-        text-align:center;
-        padding:${Math.floor(h*0.08)}px 2px 0;
-        line-height:1.2;overflow:hidden;white-space:nowrap;
-      `;
-      txt.textContent = word;
-      el.appendChild(txt);
-    }
+    const detector = new BarcodeDetector({ formats: ['ean_13', 'ean_8', 'code_128'] });
+    statusEl.textContent = 'Scanning…';
 
-    document.body.appendChild(el);
+    interval = setInterval(async () => {
+      try {
+        const hits = await detector.detect(videoEl);
+        if (!hits.length) return;
+        const raw = hits[0].rawValue;
+        if (scannedSet.has(raw)) return;
+        scannedSet.add(raw);
+        scannedISBNs.push(raw);
+        flashGreen();
+        navigator.vibrate?.(80);
+        statusEl.textContent = `Scanned! Keep going or tap Done.`;
+        addEntry(raw);
+        updateDoneBtn();
+      } catch (_) {}
+    }, 400);
 
-    // 12 evenly-spaced stops so the browser samples the velocity curve finely;
-    // per-keyframe ease-in-out so each segment decelerates into the next naturally
-    const N = 12;
-    const kf = Array.from({length: N+1}, (_, k) => {
-      const t  = k / N;
-      const ty = t === 0 ? `-${(h+40).toFixed(0)}px`
-               : t === 1 ? '110vh'
-               : `${(t*112 - 1).toFixed(1)}vh`;
-      return {
-        offset:  t,
-        opacity: t < 0.001 ? 0 : t > 0.999 ? 0 : t < 0.09 ? t/0.09*0.7 : t > 0.91 ? (1-t)/0.09*0.7 : 0.7,
-        transform: tf(t, ty),
-        easing: 'linear'
-      };
-    });
-    el.animate(kf, { duration:dur, delay:del, iterations:Infinity, easing:'linear', fill:'both' });
+  } catch {
+    cleanup();
+    const isbn = prompt('Camera access denied. Enter ISBN manually:');
+    if (isbn?.trim()) { document.getElementById('searchInput').value = isbn.trim(); doSearch(); }
   }
 }
 
+function showScannedResults(isbns, resolved) {
+  const found    = isbns.filter(i => resolved.has(i)).map(i => resolved.get(i));
+  const notFound = isbns.filter(i => !resolved.has(i));
+
+  if (!found.length) {
+    // Nothing resolved — fall back to single search
+    document.getElementById('searchInput').value = isbns[0] || '';
+    activeTab = 'search'; setActiveTabUI('search');
+    doSearch();
+    return;
+  }
+
+  lastResults = found;
+  activeTab = 'search';
+  setActiveTabUI('search');
+
+  const content = document.getElementById('content');
+  content.innerHTML = '';
+
+  const banner = document.createElement('div');
+  banner.style.cssText = 'font-family:Georgia,serif;font-size:13px;color:#5b5448;margin-bottom:16px;padding:10px 14px;background:#f0ebe0;border-radius:6px;';
+  banner.textContent = `Scanned ${isbns.length} book${isbns.length !== 1 ? 's' : ''}` +
+    (notFound.length ? ` — ${notFound.length} could not be identified` : '') + '.';
+  content.appendChild(banner);
+
+  const grid = document.createElement('div');
+  grid.className = 'grid';
+  for (const ob of found) grid.appendChild(renderCard(ob, bookKey(ob)));
+  content.appendChild(grid);
+}
+
+
 (async () => {
-  createFallingPages();
   await checkAuth();
-  await Promise.all([loadLists(), loadRecommendations()]);
+  await Promise.all([loadLists(), loadRecommendations(), loadReading()]);
+  updateCounts();
   renderActiveTab();
+  prefetchMissingCovers();
 })();
 </script>
 </body>

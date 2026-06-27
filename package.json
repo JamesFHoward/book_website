@@ -7,9 +7,16 @@
     "start": "node server.js"
   },
   "dependencies": {
+    "bcrypt": "^5.1.1",
+    "better-sqlite3": "^11.3.0",
+    "dotenv": "^17.4.2",
     "express": "^4.19.2",
     "express-session": "^1.18.0",
-    "better-sqlite3": "^11.3.0",
-    "bcrypt": "^5.1.1"
+    "nodemailer": "^9.0.1",
+    "playwright": "^1.61.1"
+  },
+  "allowScripts": {
+    "bcrypt@5.1.1": true,
+    "better-sqlite3@11.10.0": true
   }
 }

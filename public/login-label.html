@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Bookshelf — Sign in</title>
+<link rel="stylesheet" href="/style.css">
+<style>
+/* ── Entrance — pulled from the shelf ── */
+@keyframes cardLift {
+  0%   { opacity:0; transform: translateY(28px) rotateZ(-1.5deg) scale(0.97); }
+  60%  { opacity:1; }
+  100% { opacity:1; transform: translateY(0)    rotateZ(0deg)    scale(1); }
+}
+
+/* ── Card ── */
+.auth-card {
+  animation: cardLift 1.1s cubic-bezier(0.22,1,0.36,1) both;
+  will-change: transform;
+  display: block;
+  max-width: 310px;
+  width: 100%;
+  padding: 0;
+  background: #faf8f2;
+  border: 2px solid #111;
+  box-shadow:
+    4px 4px 0 0 rgba(0,0,0,0.55),
+    0 24px 60px rgba(0,0,0,0.65);
+  font-family: 'Courier New', Courier, monospace;
+  position: relative;
+}
+
+/* ── Coloured header band ── */
+.label-header {
+  background: #1e3d28;
+  color: #f5f0e0;
+  padding: 14px 16px 12px;
+  border-bottom: 3px solid #111;
+}
+.label-header .dewey {
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  opacity: 0.60;
+  margin-bottom: 3px;
+}
+.label-header h1 {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 22px;
+  font-weight: bold;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  margin: 0 0 2px;
+  color: #f5f0e0;
+}
+.label-header .tagline {
+  font-size: 10.5px;
+  font-style: italic;
+  opacity: 0.70;
+  margin: 0;
+  line-height: 1.5;
+  font-family: Georgia, serif;
+}
+
+/* ── Call number block ── */
+.call-block {
+  border-bottom: 1px solid #bbb;
+  padding: 10px 16px 9px;
+  display: flex;
+  gap: 0;
+  flex-direction: column;
+  background: #fff;
+}
+.call-line {
+  font-size: 13px;
+  font-weight: bold;
+  letter-spacing: 0.08em;
+  line-height: 1.4;
+  color: #111;
+}
+.call-line.muted { font-weight: normal; opacity: 0.45; font-size: 11px; }
+
+/* ── Divider rule ── */
+.label-rule {
+  height: 1px;
+  background: #ccc;
+  margin: 0 16px;
+}
+
+/* ── Form area ── */
+.plate-form {
+  padding: 14px 16px 0;
+}
+
+/* ── Tabs ── */
+.auth-tabs {
+  position: relative;
+  display: flex;
+  border-bottom: 1px solid #bbb;
+  margin-bottom: 14px;
+}
+.auth-tab {
+  background: none;
+  border: none;
+  padding: 6px 10px 7px;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #888;
+  cursor: pointer;
+  transition: color 0.15s;
+}
+.auth-tab:hover  { color: #333; }
+.auth-tab.active { color: #111; }
+.tab-indicator {
+  position: absolute;
+  bottom: -1.5px;
+  height: 2px;
+  background: #1e3d28;
+  border-radius: 0;
+  pointer-events: none;
+  transition: left 0.28s cubic-bezier(0.4,0,0.2,1),
+              width 0.28s cubic-bezier(0.4,0,0.2,1);
+}
+
+/* ── Field groups ── */
+.field-group {
+  margin-bottom: 13px;
+}
+.field-label {
+  display: block;
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: #666;
+  margin-bottom: 3px;
+}
+input[type="text"],
+input[type="password"] {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  background: transparent;
+  border: none;
+  border-bottom: 1.5px solid #bbb;
+  border-radius: 0;
+  padding: 5px 0;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 13.5px;
+  color: #111;
+  outline: none;
+  transition: border-color 0.15s;
+}
+input:focus { border-bottom-color: #1e3d28; }
+input::placeholder { color: #bbb; }
+
+/* ── Button ── */
+.btn-primary {
+  display: block;
+  width: 100%;
+  margin-top: 16px;
+  padding: 10px 0;
+  background: #111;
+  color: #f5f0e0;
+  border: none;
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  transition: background 0.14s, transform 0.12s, box-shadow 0.14s;
+}
+.btn-primary:not(:disabled):hover {
+  background: #1e3d28;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.35);
+}
+.btn-primary:not(:disabled):active { transform:translateY(0); box-shadow:none; }
+.btn-primary:disabled { opacity:0.50; cursor:default; }
+
+@keyframes ripple-out {
+  from { transform:translate(-50%,-50%) scale(0); opacity:0.28; }
+  to   { transform:translate(-50%,-50%) scale(4); opacity:0; }
+}
+.ripple-dot {
+  position:absolute; width:80px; height:80px; border-radius:50%;
+  background:rgba(255,255,255,0.18);
+  animation:ripple-out 0.55s ease-out forwards;
+  pointer-events:none;
+}
+
+/* ── Error ── */
+.error {
+  font-family: 'Courier New', Courier, monospace;
+  font-size: 11px;
+  color: #8b1a1a;
+  min-height: 18px;
+  padding: 6px 0 0;
+  text-align: center;
+}
+@keyframes shake {
+  0%,100% { transform:translateX(0); }
+  20%,60% { transform:translateX(-6px); }
+  40%,80% { transform:translateX(6px); }
+}
+.error.shake { animation:shake 0.38s ease; }
+
+/* ── Barcode strip ── */
+.label-footer {
+  margin-top: 14px;
+  padding: 0 0 14px;
+}
+.barcode {
+  height: 28px;
+  margin: 0 16px 4px;
+  background-image: repeating-linear-gradient(
+    to right,
+    #111 0px,  #111 2px,
+    #faf8f2 2px,  #faf8f2 4px,
+    #111 4px,  #111 5px,
+    #faf8f2 5px,  #faf8f2 8px,
+    #111 8px,  #111 11px,
+    #faf8f2 11px, #faf8f2 13px,
+    #111 13px, #111 14px,
+    #faf8f2 14px, #faf8f2 16px,
+    #111 16px, #111 19px,
+    #faf8f2 19px, #faf8f2 21px,
+    #111 21px, #111 22px,
+    #faf8f2 22px, #faf8f2 24px,
+    #111 24px, #111 27px,
+    #faf8f2 27px, #faf8f2 29px,
+    #111 29px, #111 30px,
+    #faf8f2 30px, #faf8f2 32px
+  );
+}
+.barcode-num {
+  font-size: 8px;
+  letter-spacing: 0.12em;
+  color: #999;
+  text-align: center;
+}
+</style>
+</head>
+<body class="auth-body" data-bg-pages="true">
+
+<div class="auth-card">
+
+  <!-- Header band -->
+  <div class="label-header">
+    <div class="dewey">Z 1003 .B66</div>
+    <h1>Bookshelf</h1>
+    <p class="tagline">Track what you've read —<br>and what's next.</p>
+  </div>
+
+  <!-- Call number -->
+  <div class="call-block">
+    <div class="call-line">Z</div>
+    <div class="call-line">1003</div>
+    <div class="call-line">.B66</div>
+    <div class="call-line muted">2024</div>
+  </div>
+
+  <!-- Form -->
+  <div class="plate-form">
+    <div class="auth-tabs">
+      <button class="auth-tab active" data-mode="login">Sign in</button>
+      <button class="auth-tab" data-mode="register">Create account</button>
+      <span class="tab-indicator"></span>
+    </div>
+
+    <form id="authForm">
+      <div class="field-group">
+        <label class="field-label" for="username">Borrower's name</label>
+        <input type="text"     id="username" placeholder="username" autocomplete="username"         required>
+      </div>
+      <div class="field-group">
+        <label class="field-label" for="password">Access code</label>
+        <input type="password" id="password" placeholder="••••••••" autocomplete="current-password" required>
+      </div>
+      <button type="submit" class="btn-primary" id="submitBtn">Check out</button>
+    </form>
+
+    <p class="error" id="errorMsg"></p>
+  </div>
+
+  <!-- Barcode -->
+  <div class="label-footer">
+    <div class="barcode"></div>
+    <div class="barcode-num">BKS-2024-00001</div>
+  </div>
+
+</div>
+
+<script>
+let mode = 'login';
+
+// ── Sliding tab indicator ──────────────────────────────────────────────────
+const indicator = document.querySelector('.tab-indicator');
+
+function moveIndicator(tab) {
+  const pr = tab.parentElement.getBoundingClientRect();
+  const tr = tab.getBoundingClientRect();
+  indicator.style.left  = (tr.left - pr.left) + 'px';
+  indicator.style.width = tr.width + 'px';
+}
+
+requestAnimationFrame(() => {
+  indicator.style.transition = 'none';
+  moveIndicator(document.querySelector('.auth-tab.active'));
+  requestAnimationFrame(() => { indicator.style.transition = ''; });
+});
+
+// ── Tab switching ──────────────────────────────────────────────────────────
+document.querySelectorAll('.auth-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    mode = tab.dataset.mode;
+    document.querySelectorAll('.auth-tab').forEach(t => t.classList.toggle('active', t === tab));
+    moveIndicator(tab);
+    const btn = document.getElementById('submitBtn');
+    btn.textContent = mode === 'login' ? 'Check out' : 'New card';
+    document.getElementById('password').autocomplete = mode === 'login' ? 'current-password' : 'new-password';
+    document.getElementById('errorMsg').textContent = '';
+  });
+});
+
+// ── Form submit ────────────────────────────────────────────────────────────
+document.getElementById('authForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const username  = document.getElementById('username').value.trim();
+  const password  = document.getElementById('password').value;
+  const errorMsg  = document.getElementById('errorMsg');
+  const submitBtn = document.getElementById('submitBtn');
+  const label     = mode === 'login' ? 'Check out' : 'New card';
+
+  errorMsg.textContent = '';
+  errorMsg.classList.remove('shake');
+  submitBtn.disabled    = true;
+  submitBtn.textContent = mode === 'login' ? 'Checking out…' : 'Registering…';
+
+  try {
+    const res  = await fetch(`/api/${mode === 'login' ? 'login' : 'register'}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password })
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      errorMsg.textContent = data.error || 'Something went wrong.';
+      void errorMsg.offsetWidth;
+      errorMsg.classList.add('shake');
+      submitBtn.disabled    = false;
+      submitBtn.textContent = label;
+      return;
+    }
+    window.location.href = '/app.html';
+  } catch {
+    errorMsg.textContent  = 'Could not reach the server. Try again.';
+    void errorMsg.offsetWidth;
+    errorMsg.classList.add('shake');
+    submitBtn.disabled    = false;
+    submitBtn.textContent = label;
+  }
+});
+
+// ── Button ripple ──────────────────────────────────────────────────────────
+document.getElementById('submitBtn').addEventListener('mousedown', e => {
+  if (e.currentTarget.disabled) return;
+  const btn  = e.currentTarget;
+  const rect = btn.getBoundingClientRect();
+  const dot  = document.createElement('span');
+  dot.className  = 'ripple-dot';
+  dot.style.left = (e.clientX - rect.left) + 'px';
+  dot.style.top  = (e.clientY - rect.top)  + 'px';
+  btn.appendChild(dot);
+  dot.addEventListener('animationend', () => dot.remove());
+});
+
+// ── Mouse parallax on card ─────────────────────────────────────────────────
+const card = document.querySelector('.auth-card');
+card.addEventListener('animationend', () => {
+  card.style.animation = 'none';
+  let tx = 0, ty = 0, gx = 0, gy = 0;
+
+  document.addEventListener('mousemove', e => {
+    gx = (e.clientX / innerWidth  - 0.5) * 2;
+    gy = (e.clientY / innerHeight - 0.5) * 2;
+  });
+  document.addEventListener('mouseleave', () => { gx = 0; gy = 0; });
+
+  (function tick() {
+    tx += (gy * -4 - tx) * 0.07;
+    ty += (gx *  4 - ty) * 0.07;
+    card.style.transform =
+      `perspective(900px) rotateX(${tx.toFixed(2)}deg) rotateY(${ty.toFixed(2)}deg)`;
+    requestAnimationFrame(tick);
+  })();
+}, { once: true });
+
+// ── Skip login if already authenticated ───────────────────────────────────
+fetch('/api/me').then(r => r.json()).then(d => {
+  if (d.loggedIn) window.location.href = '/app.html';
+});
+</script>
+
+</body>
+</html>

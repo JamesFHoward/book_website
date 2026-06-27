@@ -7,110 +7,248 @@
         "series": "Kingkiller Chronicle",
         "author": "Patrick Rothfuss",
         "label": "safest",
+        "cover_i": 8739161,
+        "moods": [
+          "epic",
+          "literary"
+        ],
         "blurb": "A legendary figure recounts his own life story to a chronicler, from poverty and magic school to infamy. Near-universal praise for the prose — main caveat is Book 3 has been unreleased for over a decade."
       },
       {
         "title": "Mistborn",
         "author": "Brandon Sanderson",
         "label": "safest",
+        "cover_i": 8391110,
+        "moods": [
+          "action",
+          "fast",
+          "epic"
+        ],
         "blurb": "A street thief discovers rare magical abilities in a world ruled by an immortal tyrant, and joins a heist crew to overthrow him. Praised for inventive, rule-based magic and tight plotting."
       },
       {
         "title": "The Way of Kings",
-        "series": "Stormlight Archive",
+        "series": "Stormlight Archive Book 1",
         "author": "Brandon Sanderson",
         "label": "safest",
-        "blurb": "A sprawling epic following soldiers, scholars, and would-be heroes on a war-torn world of storms and ancient magic. Considered one of the best modern epic fantasies — main complaint is sheer length."
+        "cover_i": 8391115,
+        "moods": [
+          "epic",
+          "action"
+        ],
+        "blurb": "On the war-torn world of Roshar, a soldier, a scholar, and a young thief are drawn into an ancient conflict against forces that defy comprehension. The first of five planned books — each is a brick, but the payoff is enormous."
+      },
+      {
+        "title": "Words of Radiance",
+        "series": "Stormlight Archive Book 2",
+        "author": "Brandon Sanderson",
+        "label": "safest",
+        "cover_i": 14658334,
+        "moods": [
+          "epic",
+          "action"
+        ],
+        "blurb": "The second Stormlight Archive book escalates the stakes dramatically — major revelations about the Radiants, the Parshendi, and the Desolations. Generally considered even better than Book 1."
+      },
+      {
+        "title": "Oathbringer",
+        "series": "Stormlight Archive Book 3",
+        "author": "Brandon Sanderson",
+        "label": "safest",
+        "cover_i": 14658111,
+        "moods": [
+          "epic",
+          "action",
+          "dark"
+        ],
+        "blurb": "The third book shifts focus to Dalinar and the history of the Knights Radiant. Praised for its emotional weight and worldbuilding depth; the size (1,200+ pages) is daunting but rewarding."
+      },
+      {
+        "title": "Rhythm of War",
+        "series": "Stormlight Archive Book 4",
+        "author": "Brandon Sanderson",
+        "label": "safest",
+        "cover_i": 14658361,
+        "moods": [
+          "epic",
+          "action",
+          "dark"
+        ],
+        "blurb": "The fourth book focuses heavily on Eshonai and Venli's backstory and the war on Shadesmar. Divisive on pacing mid-book but widely praised for its ending and character arcs."
       },
       {
         "title": "The Lies of Locke Lamora",
         "author": "Scott Lynch",
         "label": "safest",
+        "cover_i": 11207424,
+        "moods": [
+          "fast",
+          "action",
+          "dark"
+        ],
         "blurb": "A con artist and his crew navigate the criminal underworld of a Venice-like fantasy city. Critically loved for its wit and heist-style plotting."
       },
       {
         "title": "A Wizard of Earthsea",
         "author": "Ursula K. Le Guin",
         "label": "safest",
-        "blurb": "A boy wizard's coming-of-age story, more about balance and consequence than power fantasy. A genre-defining classic; some modern readers find the pacing slow."
+        "moods": [
+          "classic",
+          "literary",
+          "short"
+        ],
+        "blurb": "A boy wizard's coming-of-age story, more about balance and consequence than power fantasy. A genre-defining classic; some modern readers find the pacing slow.",
+        "cover_i": 13617691
       },
       {
         "title": "The Hobbit",
         "author": "J.R.R. Tolkien",
         "label": "safest",
+        "cover_i": 8405674,
+        "moods": [
+          "classic",
+          "cosy",
+          "action"
+        ],
         "blurb": "The foundational starting point for The Lord of the Rings — the source of most tropes other fantasy borrows from. Start here before Fellowship. Near-universal reverence as the genre's cornerstone."
       },
       {
         "title": "Jade City",
         "author": "Fonda Lee",
         "label": "safest",
-        "blurb": "A crime-family epic in an Asian-inspired city where magical jade grants supernatural abilities. Award-winning, praised for its fresh setting and political intrigue."
+        "moods": [
+          "action",
+          "dark",
+          "fast"
+        ],
+        "blurb": "A crime-family epic in an Asian-inspired city where magical jade grants supernatural abilities. Award-winning, praised for its fresh setting and political intrigue.",
+        "cover_i": 10401388
       },
       {
         "title": "The Witcher: The Last Wish",
         "author": "Andrzej Sapkowski",
         "label": "safest",
-        "blurb": "A monster hunter for hire navigates a morally grey world — the source material for the games and show. The early short-story collections are the ideal entry point. Well-regarded for their cynical tone."
+        "moods": [
+          "dark",
+          "action",
+          "short"
+        ],
+        "blurb": "A monster hunter for hire navigates a morally grey world — the source material for the games and show. The early short-story collections are the ideal entry point. Well-regarded for their cynical tone.",
+        "cover_isbn": "9780316029193"
       },
       {
         "title": "Trail of Lightning",
         "author": "Rebecca Roanhorse",
         "label": "safest",
-        "blurb": "Post-apocalyptic fantasy rooted in Navajo mythology, following a monster-hunter heroine. Praised for its unique cultural foundation and fresh urban fantasy take."
+        "moods": [
+          "action",
+          "dark",
+          "fast"
+        ],
+        "blurb": "Post-apocalyptic fantasy rooted in Navajo mythology, following a monster-hunter heroine. Praised for its unique cultural foundation and fresh urban fantasy take.",
+        "cover_i": 9384029
       },
       {
         "title": "Gardens of the Moon",
         "series": "Malazan Book of the Fallen",
         "author": "Steven Erikson",
         "label": "polarizing",
-        "blurb": "A genre-defining epic with an enormous cast and a 'drop you in the deep end' approach to worldbuilding. Beloved by die-hard fans for scope and ambition — notorious for confusing first-time readers."
+        "moods": [
+          "epic",
+          "dark",
+          "action"
+        ],
+        "blurb": "A genre-defining epic with an enormous cast and a 'drop you in the deep end' approach to worldbuilding. Beloved by die-hard fans for scope and ambition — notorious for confusing first-time readers.",
+        "cover_i": 374277
       },
       {
         "title": "The Blade Itself",
         "series": "First Law",
         "author": "Joe Abercrombie",
         "label": "polarizing",
-        "blurb": "A grimdark trilogy that deliberately subverts classic hero tropes with morally grey, often unlikeable characters. Loved for dark humor and trope subversion; criticized by some for being bleak by design."
+        "moods": [
+          "dark",
+          "literary"
+        ],
+        "blurb": "A grimdark trilogy that deliberately subverts classic hero tropes with morally grey, often unlikeable characters. Loved for dark humor and trope subversion; criticized by some for being bleak by design.",
+        "cover_i": 14543422
       },
       {
         "title": "Jonathan Strange & Mr Norrell",
         "author": "Susanna Clarke",
         "label": "polarizing",
-        "blurb": "A literary, alternate-history take on magic's return to 19th-century England. Critically acclaimed — some readers find the pacing slow and the prose deliberately dense and old-fashioned."
+        "moods": [
+          "literary",
+          "classic",
+          "epic"
+        ],
+        "blurb": "A literary, alternate-history take on magic's return to 19th-century England. Critically acclaimed — some readers find the pacing slow and the prose deliberately dense and old-fashioned.",
+        "cover_i": 13081709
       },
       {
         "title": "The Dark Tower: The Gunslinger",
         "series": "The Dark Tower",
         "author": "Stephen King",
         "label": "polarizing",
-        "blurb": "A gunslinger's quest across a decaying multiverse blending fantasy, western, and horror. Deeply loved for ambition and worldbuilding; the ending of the series is famously divisive."
+        "moods": [
+          "dark",
+          "epic",
+          "action"
+        ],
+        "blurb": "A gunslinger's quest across a decaying multiverse blending fantasy, western, and horror. Deeply loved for ambition and worldbuilding; the ending of the series is famously divisive.",
+        "cover_i": 8396638
       },
       {
         "title": "Vicious",
         "author": "V.E. Schwab",
         "label": "polarizing",
-        "blurb": "Two former friends turned rivals after gaining superpowers through near-death experiments. Well-liked and fast-paced with morally grey characters; some find the out-of-order structure gimmicky."
+        "moods": [
+          "dark",
+          "action",
+          "fast"
+        ],
+        "blurb": "Two former friends turned rivals after gaining superpowers through near-death experiments. Well-liked and fast-paced with morally grey characters; some find the out-of-order structure gimmicky.",
+        "cover_i": 12506257
       },
       {
         "title": "The Left Hand of Darkness",
         "author": "Ursula K. Le Guin",
         "label": "adjacent",
-        "blurb": "A human envoy navigates an alien world where inhabitants have no fixed gender. Hugely respected, award-winning, and ahead of its time. More cerebral than plot-driven."
+        "moods": [
+          "literary",
+          "classic",
+          "mind-bending"
+        ],
+        "blurb": "A human envoy navigates an alien world where inhabitants have no fixed gender. Hugely respected, award-winning, and ahead of its time. More cerebral than plot-driven.",
+        "cover_i": 10618463
       },
       {
         "title": "All Systems Red",
         "series": "Murderbot Diaries",
         "author": "Martha Wells",
         "label": "adjacent",
-        "blurb": "A security android who'd rather watch TV than deal with humans gets dragged into adventures anyway. Extremely well-loved, witty, and fast reads — start with the first novella."
+        "moods": [
+          "fast",
+          "short",
+          "cosy"
+        ],
+        "blurb": "A security android who'd rather watch TV than deal with humans gets dragged into adventures anyway. Extremely well-loved, witty, and fast reads — start with the first novella.",
+        "cover_i": 9157148
       },
       {
         "title": "The Neverending Story",
         "author": "Michael Ende",
         "label": "adjacent",
-        "blurb": "A boy is pulled into a magical book and becomes part of the story he's reading. The full novel is darker and deeper than the well-known film adaptation."
+        "moods": [
+          "cosy",
+          "classic",
+          "literary"
+        ],
+        "blurb": "A boy is pulled into a magical book and becomes part of the story he's reading. The full novel is darker and deeper than the well-known film adaptation.",
+        "cover_i": 7383413
       }
-    ]
+    ],
+    "olQuery": "subject:fantasy novel magic"
   },
   {
     "genre": "Thrillers",
@@ -119,99 +257,188 @@
         "title": "Final Girls",
         "author": "Riley Sager",
         "label": "safest",
-        "blurb": "Twisty psychological thriller with surprise reveals — Sager's signature style. Generally well-enjoyed and fast-paced. Some readers note his twists feel formulaic once you've read several of his books."
+        "moods": [
+          "fast",
+          "dark",
+          "mind-bending"
+        ],
+        "blurb": "Twisty psychological thriller with surprise reveals — Sager's signature style. Generally well-enjoyed and fast-paced. Some readers note his twists feel formulaic once you've read several of his books.",
+        "cover_i": 8807201
       },
       {
         "title": "The House Across the Lake",
         "author": "Riley Sager",
         "label": "safest",
-        "blurb": "A widow gets drawn into a dangerous situation involving her glamorous neighbor. Considered one of Sager's stronger entries."
+        "moods": [
+          "fast",
+          "dark"
+        ],
+        "blurb": "A widow gets drawn into a dangerous situation involving her glamorous neighbor. Considered one of Sager's stronger entries.",
+        "cover_i": 12802833
       },
       {
         "title": "Behind Closed Doors",
         "author": "B.A. Paris",
         "label": "safest",
-        "blurb": "A seemingly perfect marriage hides a controlling, abusive truth. Well-reviewed and tense; some find it bleak rather than 'fun' to read."
+        "moods": [
+          "dark",
+          "fast"
+        ],
+        "blurb": "A seemingly perfect marriage hides a controlling, abusive truth. Well-reviewed and tense; some find it bleak rather than 'fun' to read.",
+        "cover_i": 15125304
       },
       {
         "title": "The Hunting Party",
         "author": "Lucy Foley",
         "label": "safest",
-        "blurb": "A group of friends at a remote Scottish lodge for New Year's — one of them turns up dead. A solid, well-executed whodunit."
+        "moods": [
+          "fast",
+          "dark"
+        ],
+        "blurb": "A group of friends at a remote Scottish lodge for New Year's — one of them turns up dead. A solid, well-executed whodunit.",
+        "cover_i": 8797519
       },
       {
         "title": "Still Missing",
         "author": "Chevy Stevens",
         "label": "safest",
-        "blurb": "A realtor is abducted and held captive for nearly a year, then must rebuild her life after escaping. Strong reviews for psychological depth; intense and dark for some readers."
+        "moods": [
+          "dark",
+          "literary"
+        ],
+        "blurb": "A realtor is abducted and held captive for nearly a year, then must rebuild her life after escaping. Strong reviews for psychological depth; intense and dark for some readers.",
+        "cover_i": 6762600
       },
       {
         "title": "Misery",
         "author": "Stephen King",
         "label": "safest",
+        "cover_i": 8349866,
+        "moods": [
+          "horror",
+          "fast",
+          "dark"
+        ],
         "blurb": "A famous author is held captive by an obsessive fan. A horror-thriller classic with near-universal praise."
       },
       {
         "title": "Gone Girl",
         "author": "Gillian Flynn",
         "label": "safest",
+        "cover_i": 8236579,
+        "moods": [
+          "fast",
+          "mind-bending",
+          "dark"
+        ],
         "blurb": "A husband becomes the prime suspect when his wife disappears, in one of the genre's most famous unreliable-narrator twists. Critically acclaimed and hugely influential."
       },
       {
         "title": "Everyone in My Family Has Killed Someone",
         "author": "Benjamin Stevenson",
         "label": "safest",
-        "blurb": "A murder mystery with a comedic, self-aware tone — the narrator openly references mystery tropes as he tells the story. Very well-loved, including its recently released sequel."
+        "moods": [
+          "fast",
+          "cosy",
+          "mind-bending"
+        ],
+        "blurb": "A murder mystery with a comedic, self-aware tone — the narrator openly references mystery tropes as he tells the story. Very well-loved, including its recently released sequel.",
+        "cover_i": 13260574
       },
       {
         "title": "The Woman in the Window",
         "author": "A.J. Finn",
         "label": "safest",
-        "blurb": "An agoraphobic woman witnesses a crime from her window and isn't sure anyone will believe her. Popular and fast; some find it derivative of Rear Window."
+        "moods": [
+          "fast",
+          "dark"
+        ],
+        "blurb": "An agoraphobic woman witnesses a crime from her window and isn't sure anyone will believe her. Popular and fast; some find it derivative of Rear Window.",
+        "cover_i": 9237722
       },
       {
         "title": "Rock, Paper, Scissors",
         "author": "Alice Feeney",
         "label": "safest",
-        "blurb": "A couple on a remote anniversary trip uncovers unsettling secrets about their marriage. Well-liked and twisty."
+        "moods": [
+          "fast",
+          "mind-bending"
+        ],
+        "blurb": "A couple on a remote anniversary trip uncovers unsettling secrets about their marriage. Well-liked and twisty.",
+        "cover_i": 10826952
       },
       {
         "title": "Sometimes I Lie",
         "author": "Alice Feeney",
         "label": "safest",
-        "blurb": "A woman wakes up in a hospital, unable to move or speak, recalling the events leading to her accident. Well-reviewed psychological thriller."
+        "moods": [
+          "fast",
+          "mind-bending",
+          "dark"
+        ],
+        "blurb": "A woman wakes up in a hospital, unable to move or speak, recalling the events leading to her accident. Well-reviewed psychological thriller.",
+        "cover_i": 10151800
       },
       {
         "title": "The Kind Worth Killing",
         "author": "Peter Swanson",
         "label": "safest",
-        "blurb": "A chance airport conversation leads two strangers to plot a murder together. Well-regarded, twisty and dark — considered some of the stronger 'stranger conspiracy' thrillers in the genre."
+        "moods": [
+          "dark",
+          "fast"
+        ],
+        "blurb": "A chance airport conversation leads two strangers to plot a murder together. Well-regarded, twisty and dark — considered some of the stronger 'stranger conspiracy' thrillers in the genre.",
+        "cover_i": 8903746
       },
       {
         "title": "Verity",
         "author": "Colleen Hoover",
         "label": "polarizing",
-        "blurb": "A struggling writer is hired to finish a bestselling author's series and uncovers dark secrets in her manuscripts. Loved for being unputdownable; criticized for a messy ending and uneven tone between romance and thriller."
+        "moods": [
+          "fast",
+          "dark",
+          "mind-bending"
+        ],
+        "blurb": "A struggling writer is hired to finish a bestselling author's series and uncovers dark secrets in her manuscripts. Loved for being unputdownable; criticized for a messy ending and uneven tone between romance and thriller.",
+        "cover_i": 8747160
       },
       {
         "title": "In the Woods",
         "author": "Tana French",
         "label": "polarizing",
-        "blurb": "A detective investigates a child's murder that echoes an unsolved disappearance from his own childhood. Loved for prose and atmosphere; the central mystery is deliberately left unresolved — which frustrates many readers."
+        "moods": [
+          "literary",
+          "dark"
+        ],
+        "blurb": "A detective investigates a child's murder that echoes an unsolved disappearance from his own childhood. Loved for prose and atmosphere; the central mystery is deliberately left unresolved — which frustrates many readers.",
+        "cover_i": 1474730
       },
       {
         "title": "Behind Her Eyes",
         "author": "Sarah Pinborough",
         "label": "polarizing",
-        "blurb": "A woman gets entangled with a married couple, leading to a famously wild twist. Extremely divisive — fans call the twist unforgettable, critics say it veers into territory that feels like cheating."
+        "moods": [
+          "fast",
+          "mind-bending"
+        ],
+        "blurb": "A woman gets entangled with a married couple, leading to a famously wild twist. Extremely divisive — fans call the twist unforgettable, critics say it veers into territory that feels like cheating.",
+        "cover_i": 9254137
       },
       {
         "title": "The Last House on Needless Street",
         "author": "Catriona Ward",
         "label": "polarizing",
-        "blurb": "A reclusive man, his daughter, and a cat in a house at the edge of the woods — slow-burn horror-thriller hybrid. Critically praised and award-winning; deliberately disorienting structure frustrates some readers."
+        "moods": [
+          "horror",
+          "dark",
+          "mind-bending",
+          "literary"
+        ],
+        "blurb": "A reclusive man, his daughter, and a cat in a house at the edge of the woods — slow-burn horror-thriller hybrid. Critically praised and award-winning; deliberately disorienting structure frustrates some readers.",
+        "cover_i": 10829438
       }
-    ]
+    ],
+    "olQuery": "subject:thriller suspense psychological"
   },
   {
     "genre": "Adventure & Survival",
@@ -220,9 +447,16 @@
         "title": "Hatchet",
         "author": "Gary Paulsen",
         "label": "safest",
+        "cover_i": 8186568,
+        "moods": [
+          "classic",
+          "fast",
+          "action"
+        ],
         "blurb": "A 13-year-old boy survives alone in the Canadian wilderness after a plane crash, armed with only a hatchet. A beloved classic — near-universal praise, often a formative read but holds up well for adults."
       }
-    ]
+    ],
+    "olQuery": "subject:adventure survival wilderness"
   },
   {
     "genre": "History & True Crime",
@@ -230,16 +464,29 @@
       {
         "title": "The Nazi and the Psychiatrist",
         "author": "Jack El-Hai",
+        "cover_i": 7865904,
         "label": "safest",
+        "moods": [
+          "true-story",
+          "dark",
+          "literary"
+        ],
         "blurb": "True story of the U.S. Army psychiatrist assigned to evaluate Hermann Göring and other Nazi leaders at Nuremberg — and how studying evil up close unraveled his own life. NYT bestseller; recently adapted into the film Nuremberg."
       },
       {
         "title": "22 Cells in Nuremberg",
         "author": "Douglas M. Kelley",
         "label": "safest",
-        "blurb": "The firsthand account by the actual psychiatrist who evaluated the 22 top Nazi leaders at Nuremberg. A rare, historically significant primary source — praised as one of the most important books published on WWII."
+        "moods": [
+          "true-story",
+          "dark",
+          "classic"
+        ],
+        "blurb": "The firsthand account by the actual psychiatrist who evaluated the 22 top Nazi leaders at Nuremberg. A rare, historically significant primary source — praised as one of the most important books published on WWII.",
+        "cover_i": 15127591
       }
-    ]
+    ],
+    "olQuery": "subject:true crime nonfiction history"
   },
   {
     "genre": "Contemporary Fiction",
@@ -248,51 +495,98 @@
         "title": "A Man Called Ove",
         "author": "Fredrik Backman",
         "label": "safest",
+        "cover_i": 8227177,
+        "moods": [
+          "cosy",
+          "literary",
+          "emotional"
+        ],
         "blurb": "A grumpy, routine-obsessed widower's life is upended by an unlikely group of neighbors. Widely beloved, heartwarming without being saccharine — near-universal praise as a feel-good modern classic."
       },
       {
         "title": "The Unlikely Pilgrimage of Harold Fry",
         "author": "Rachel Joyce",
         "label": "safest",
-        "blurb": "A retired man sets off on an impromptu, life-changing walk across England to visit a dying former friend. Gentle, quirky, well-loved bestseller."
+        "moods": [
+          "cosy",
+          "literary",
+          "emotional"
+        ],
+        "blurb": "A retired man sets off on an impromptu, life-changing walk across England to visit a dying former friend. Gentle, quirky, well-loved bestseller.",
+        "cover_i": 8345147
       },
       {
         "title": "The Poisonwood Bible",
         "author": "Barbara Kingsolver",
         "label": "safest",
-        "blurb": "A missionary family's life unravels in the Congo, narrated by the wife and four daughters across decades. Critically acclaimed, often called a modern masterpiece (Pulitzer finalist)."
+        "moods": [
+          "literary",
+          "dark",
+          "epic"
+        ],
+        "blurb": "A missionary family's life unravels in the Congo, narrated by the wife and four daughters across decades. Critically acclaimed, often called a modern masterpiece (Pulitzer finalist).",
+        "cover_i": 853663
       },
       {
         "title": "Animal Dreams",
         "author": "Barbara Kingsolver",
         "label": "safest",
-        "blurb": "A woman returns to her Arizona hometown to care for her ailing father and confronts her past and the town's environmental crisis. Well-regarded literary fiction; praised for grounded characters."
+        "moods": [
+          "literary",
+          "emotional"
+        ],
+        "blurb": "A woman returns to her Arizona hometown to care for her ailing father and confronts her past and the town's environmental crisis. Well-regarded literary fiction; praised for grounded characters.",
+        "cover_i": 22169
       },
       {
         "title": "To Kill a Mockingbird",
         "author": "Harper Lee",
         "label": "safest",
+        "cover_i": 8323861,
+        "moods": [
+          "classic",
+          "literary",
+          "emotional"
+        ],
         "blurb": "A young girl in Depression-era Alabama watches her father defend a Black man falsely accused of rape. Considered one of the greatest American novels and a staple of school curricula."
       },
       {
         "title": "Jock of the Bushveld",
         "author": "Percy FitzPatrick",
         "label": "safest",
-        "blurb": "A memoir of adventures with a loyal hunting dog in turn-of-the-century South African bushveld. A beloved South African classic, consistently well-reviewed by those who've read it."
+        "moods": [
+          "classic",
+          "cosy",
+          "true-story"
+        ],
+        "blurb": "A memoir of adventures with a loyal hunting dog in turn-of-the-century South African bushveld. A beloved South African classic, consistently well-reviewed by those who've read it.",
+        "cover_i": 2497028
       },
       {
         "title": "Scattered Minds",
         "author": "Gabor Maté",
         "label": "polarizing",
-        "blurb": "A trauma-informed look at ADHD, arguing it stems from early childhood environment rather than purely genetics. Respected in trauma and psychology circles; controversial among some clinicians."
+        "moods": [
+          "true-story",
+          "literary"
+        ],
+        "blurb": "A trauma-informed look at ADHD, arguing it stems from early childhood environment rather than purely genetics. Respected in trauma and psychology circles; controversial among some clinicians.",
+        "cover_i": 296952
       },
       {
         "title": "The Art of Hearing Heartbeats",
         "author": "Jan-Philipp Sendker",
         "label": "polarizing",
-        "blurb": "A New York lawyer travels to Burma to uncover her father's hidden past and a decades-old love story. Loved by many for its romantic, atmospheric storytelling; some find it overly sentimental."
+        "moods": [
+          "cosy",
+          "emotional",
+          "literary"
+        ],
+        "blurb": "A New York lawyer travels to Burma to uncover her father's hidden past and a decades-old love story. Loved by many for its romantic, atmospheric storytelling; some find it overly sentimental.",
+        "cover_i": 8370291
       }
-    ]
+    ],
+    "olQuery": "subject:contemporary fiction literary"
   },
   {
     "genre": "Warhammer 40K",
@@ -301,28 +595,53 @@
         "title": "Eisenhorn: Xenos",
         "author": "Dan Abnett",
         "label": "safest",
-        "blurb": "A detective/thriller story following an Imperial Inquisitor hunting a sinister conspiracy. Widely considered the best 40k entry point — requires zero prior lore knowledge."
+        "moods": [
+          "action",
+          "fast",
+          "dark"
+        ],
+        "blurb": "A detective/thriller story following an Imperial Inquisitor hunting a sinister conspiracy. Widely considered the best 40k entry point — requires zero prior lore knowledge.",
+        "cover_i": 476057
       },
       {
         "title": "Gaunt's Ghosts: First and Only",
         "author": "Dan Abnett",
         "label": "safest",
-        "blurb": "'Band of Brothers in space' — follows a regiment of Imperial Guard soldiers through brutal warfare. A beloved series for its grounded, human-scale perspective on the setting."
+        "moods": [
+          "action",
+          "dark",
+          "epic"
+        ],
+        "blurb": "'Band of Brothers in space' — follows a regiment of Imperial Guard soldiers through brutal warfare. A beloved series for its grounded, human-scale perspective on the setting.",
+        "cover_i": 886488
       },
       {
         "title": "Helsreach",
         "author": "Aaron Dembski-Bowden",
         "label": "safest",
-        "blurb": "A single desperate last-stand battle as Space Marines defend a hive city from an Ork invasion. Praised as the purest distillation of 40k's tone — a great standalone taste test."
+        "moods": [
+          "action",
+          "dark",
+          "fast"
+        ],
+        "blurb": "A single desperate last-stand battle as Space Marines defend a hive city from an Ork invasion. Praised as the purest distillation of 40k's tone — a great standalone taste test.",
+        "cover_i": 7741218
       },
       {
         "title": "Horus Rising",
         "series": "Horus Heresy Book 1",
         "author": "Dan Abnett",
         "label": "commitment",
-        "blurb": "The start of the 90+ book Horus Heresy saga, chronicling the betrayal that defines the entire 40k timeline. A strong start, but the full series is a serious long-term commitment."
+        "moods": [
+          "action",
+          "dark",
+          "epic"
+        ],
+        "blurb": "The start of the 90+ book Horus Heresy saga, chronicling the betrayal that defines the entire 40k timeline. A strong start, but the full series is a serious long-term commitment.",
+        "cover_i": 894713
       }
-    ]
+    ],
+    "olQuery": "warhammer 40000 novel series"
   },
   {
     "genre": "Personal Growth",
@@ -331,62 +650,123 @@
         "title": "Man's Search for Meaning",
         "author": "Viktor Frankl",
         "label": "safest",
+        "cover_i": 8323671,
+        "moods": [
+          "true-story",
+          "classic",
+          "short",
+          "literary"
+        ],
         "blurb": "A psychiatrist's account of surviving Nazi concentration camps and the philosophy of meaning he developed from it. A widely respected modern classic with little real contention."
       },
       {
         "title": "Meditations",
         "author": "Marcus Aurelius",
         "label": "safest",
-        "blurb": "Personal philosophical journal of a Roman emperor practicing Stoicism. A foundational text. Some find Stoic philosophy repetitive or emotionally cold."
+        "moods": [
+          "classic",
+          "literary",
+          "short"
+        ],
+        "blurb": "Personal philosophical journal of a Roman emperor practicing Stoicism. A foundational text. Some find Stoic philosophy repetitive or emotionally cold.",
+        "cover_i": 13202688
       },
       {
         "title": "Atomic Habits",
         "author": "James Clear",
         "label": "safest",
+        "cover_i": 11918441,
+        "moods": [
+          "true-story",
+          "short",
+          "fast"
+        ],
         "blurb": "A practical framework for building good habits through small incremental changes. Popular and practical; common criticism is that it repackages common sense."
       },
       {
         "title": "The War of Art",
         "author": "Steven Pressfield",
         "label": "safest",
-        "blurb": "A short, punchy book on overcoming 'Resistance' — the internal force that stops people from doing creative work. Loved by creatives for being concise and motivating."
+        "moods": [
+          "true-story",
+          "short"
+        ],
+        "blurb": "A short, punchy book on overcoming 'Resistance' — the internal force that stops people from doing creative work. Loved by creatives for being concise and motivating.",
+        "cover_i": 288439
       },
       {
         "title": "Born a Crime",
         "author": "Trevor Noah",
         "label": "safest",
+        "cover_i": 8573831,
+        "moods": [
+          "true-story",
+          "cosy",
+          "emotional",
+          "fast"
+        ],
         "blurb": "Memoir of growing up mixed-race in apartheid South Africa, blending humor with hard truths. Very well-loved — the audiobook narrated by Noah himself is often recommended as even better than the text."
       },
       {
         "title": "Into the Wild",
         "author": "Jon Krakauer",
         "label": "safest",
+        "cover_i": 8262573,
+        "moods": [
+          "true-story",
+          "action",
+          "dark"
+        ],
         "blurb": "True story of a young man who abandoned his possessions to live in the Alaskan wilderness, and died there. Gripping and widely respected; debate exists over whether the subject was inspiring or reckless."
       },
       {
         "title": "Catch-22",
         "author": "Joseph Heller",
         "label": "safest",
-        "blurb": "A satirical anti-war novel about the absurd bureaucratic logic soldiers face in WWII. A widely respected classic of dark satire."
+        "moods": [
+          "classic",
+          "literary",
+          "dark"
+        ],
+        "blurb": "A satirical anti-war novel about the absurd bureaucratic logic soldiers face in WWII. A widely respected classic of dark satire.",
+        "cover_i": 6468653
       },
       {
         "title": "Fight Club",
         "author": "Chuck Palahniuk",
         "label": "polarizing",
-        "blurb": "A disaffected office worker forms an underground fight club that spirals into anarchist chaos. A cult classic; some find the philosophy and its real-world misreadings genuinely concerning rather than just edgy."
+        "moods": [
+          "dark",
+          "fast",
+          "mind-bending"
+        ],
+        "blurb": "A disaffected office worker forms an underground fight club that spirals into anarchist chaos. A cult classic; some find the philosophy and its real-world misreadings genuinely concerning rather than just edgy.",
+        "cover_i": 7890578
       },
       {
         "title": "Never Finished",
         "author": "David Goggins",
         "label": "polarizing",
-        "blurb": "The follow-up to Can't Hurt Me, going deeper into Goggins's mindset on self-discipline and pushing past perceived limits. Fans enjoy the same intensity; critics say his extreme approach isn't realistic for most people."
+        "moods": [
+          "true-story",
+          "action"
+        ],
+        "blurb": "The follow-up to Can't Hurt Me, going deeper into Goggins's mindset on self-discipline and pushing past perceived limits. Fans enjoy the same intensity; critics say his extreme approach isn't realistic for most people.",
+        "cover_i": 13180934
       },
       {
         "title": "Fear and Loathing in Las Vegas",
         "author": "Hunter S. Thompson",
         "label": "polarizing",
-        "blurb": "A drug-fueled, semi-fictionalized account of a wild trip to Vegas — a landmark of gonzo journalism. A cult favorite; some find the glorification of drug use off-putting rather than fun."
+        "moods": [
+          "dark",
+          "fast",
+          "classic"
+        ],
+        "blurb": "A drug-fueled, semi-fictionalized account of a wild trip to Vegas — a landmark of gonzo journalism. A cult favorite; some find the glorification of drug use off-putting rather than fun.",
+        "cover_i": 13396
       }
-    ]
+    ],
+    "olQuery": "subject:self-help personal development nonfiction"
   }
 ]
