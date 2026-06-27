@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Bookshelf</title>
 <link rel="stylesheet" href="/style.css">
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#1F3D2E">
 <style>
 .pw-wrap { position:relative; margin-bottom:12px; }
 .pw-wrap input { margin-bottom:0; padding-right:44px; }
@@ -68,6 +70,7 @@
 </div>
 
 <script>
+if(localStorage.getItem('darkMode')==='true')document.documentElement.classList.add('dark');
 function togglePw(id, btn) {
   const input = document.getElementById(id);
   const showing = input.type === 'text';

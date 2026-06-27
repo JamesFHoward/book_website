@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Bookshelf — My Profile</title>
 <link rel="stylesheet" href="/style.css">
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#1F3D2E">
 <style>
 .profile-wrap{
   max-width:860px;
@@ -102,7 +104,7 @@
 /* ── Stats grid ── */
 .stats-grid{
   display:grid;
-  grid-template-columns:repeat(4,1fr);
+  grid-template-columns:repeat(5,1fr);
   gap:12px;
   margin-bottom:20px;
 }
@@ -215,6 +217,17 @@
 .recent-title{ font-size:15px;color:var(--ink);font-weight:500; }
 .recent-author{ font-size:13px;color:#9a8e78;font-style:italic;margin-left:2px; }
 
+/* Month chart */
+.month-chart{display:flex;gap:4px;align-items:flex-end;height:80px;}
+.month-col{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;}
+.month-bar-wrap{flex:1;display:flex;align-items:flex-end;width:100%;}
+.month-bar{width:100%;background:var(--forest);border-radius:2px 2px 0 0;min-height:2px;}
+.month-label{font-family:Georgia,serif;font-size:9px;color:#9a8e78;text-transform:uppercase;}
+/* Heatmap */
+.heatmap-grid{display:grid;grid-template-columns:repeat(52,1fr);gap:2px;margin-top:4px;}
+.heat-cell{aspect-ratio:1;border-radius:2px;}
+.heat-0{background:#e8e0cc;}.heat-1{background:#9bbb9b;}.heat-2{background:#5c9e6e;}.heat-3{background:var(--forest);}
+
 @media(max-width:520px){
   .stats-grid{ grid-template-columns:repeat(2,1fr); }
   .profile-header{ gap:16px; }
@@ -229,8 +242,31 @@
 
   <nav class="profile-nav">
     <a href="/app.html" class="nav-btn nav-btn-back">← Back to Bookshelf</a>
-    <button id="logoutBtn" class="nav-btn nav-btn-signout">Sign out</button>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <button id="darkToggleProfile" class="nav-btn nav-btn-back" style="font-size:13px;padding:7px 12px;">🌙 Dark</button>
+      <button id="shareBtn" class="nav-btn nav-btn-back">📤 Share</button>
+      <button id="logoutBtn" class="nav-btn nav-btn-signout">Sign out</button>
+    </div>
   </nav>
+
+  <!-- Share modal -->
+  <div id="shareModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:200;align-items:center;justify-content:center;padding:20px;">
+    <div style="background:var(--card,#fff);border-radius:16px;padding:32px;max-width:380px;width:100%;position:relative;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,0.3);">
+      <button onclick="document.getElementById('shareModal').style.display='none'" style="position:absolute;top:12px;right:14px;background:none;border:none;font-size:20px;cursor:pointer;color:#857c68;">✕</button>
+      <div style="background:linear-gradient(135deg,#1F3D2E 0%,#2d5c44 100%);border-radius:12px;padding:32px 24px;color:#FAF8F3;">
+        <div style="font-family:Georgia,serif;font-size:11px;opacity:0.6;letter-spacing:0.14em;text-transform:uppercase;margin-bottom:10px;">My Reading</div>
+        <div id="sc-read" style="font-family:Georgia,serif;font-size:48px;font-weight:700;color:#C9A227;line-height:1;"></div>
+        <div style="font-family:Georgia,serif;font-size:14px;opacity:0.7;margin:4px 0 24px;">books read</div>
+        <div style="display:flex;justify-content:space-around;">
+          <div><div id="sc-pages" style="font-size:22px;font-weight:700;color:#C9A227;"></div><div style="font-size:10px;opacity:0.6;text-transform:uppercase;letter-spacing:0.08em;">pages</div></div>
+          <div><div id="sc-want" style="font-size:22px;font-weight:700;color:#C9A227;"></div><div style="font-size:10px;opacity:0.6;text-transform:uppercase;letter-spacing:0.08em;">on shelf</div></div>
+          <div><div id="sc-fav" style="font-size:22px;font-weight:700;color:#C9A227;"></div><div style="font-size:10px;opacity:0.6;text-transform:uppercase;letter-spacing:0.08em;">favourites</div></div>
+        </div>
+        <div style="margin-top:24px;font-family:Georgia,serif;font-size:11px;opacity:0.4;">Tracked on Bookshelf</div>
+      </div>
+      <p style="font-family:Georgia,serif;font-size:13px;color:#857c68;margin:16px 0 0;">Screenshot this card to share!</p>
+    </div>
+  </div>
 
   <!-- Header -->
   <div class="profile-header">
@@ -256,6 +292,10 @@
       <span class="info-label">Member since</span>
       <span class="info-value" id="infoJoined">—</span>
     </div>
+    <div class="info-row" style="margin-top:8px;">
+      <span class="info-label"></span>
+      <a href="/api/export/csv" class="nav-btn nav-btn-back" style="font-size:13px;padding:7px 14px;" download>⬇ Export as CSV</a>
+    </div>
   </div>
 
   <!-- Reading stats -->
@@ -278,6 +318,10 @@
         <div class="stat-num" id="statFav">0</div>
         <div class="stat-label">Favourites</div>
       </div>
+      <div class="stat-box">
+        <div class="stat-num" id="statPages" style="font-size:26px;">0</div>
+        <div class="stat-label">Pages Read</div>
+      </div>
     </div>
     <div class="dist-bar" id="distBar">
       <div class="dist-seg dist-want" id="distWant"></div>
@@ -289,6 +333,13 @@
       <span><span class="dlot" style="background:#c9a227"></span>Already Read</span>
       <span><span class="dlot" style="background:#c06030"></span>Favourites</span>
     </div>
+    <div id="monthChart" style="margin-top:18px;"></div>
+  </div>
+
+  <!-- Reading heatmap -->
+  <div class="pcard">
+    <div class="pcard-title">Reading Activity (last 365 days)</div>
+    <div id="heatmapGrid" class="heatmap-grid"></div>
   </div>
 
   <!-- Reading goal -->
@@ -306,10 +357,23 @@
 </div>
 
 <script>
+if (localStorage.getItem('darkMode') === 'true') document.documentElement.classList.add('dark');
+
 document.getElementById('logoutBtn').addEventListener('click', async () => {
   await fetch('/api/logout', { method: 'POST' });
   window.location.href = '/';
 });
+
+const _darkPref = localStorage.getItem('darkMode') === 'true';
+const _darkBtn = document.getElementById('darkToggleProfile');
+if (_darkBtn) {
+  _darkBtn.textContent = _darkPref ? '☀ Light' : '🌙 Dark';
+  _darkBtn.addEventListener('click', () => {
+    const on = document.documentElement.classList.toggle('dark');
+    localStorage.setItem('darkMode', on);
+    _darkBtn.textContent = on ? '☀ Light' : '🌙 Dark';
+  });
+}
 
 async function load() {
   const res = await fetch('/api/profile');
@@ -337,11 +401,46 @@ async function load() {
   document.getElementById('statWant').textContent    = want;
   document.getElementById('statRead').textContent    = read;
   document.getElementById('statFav').textContent     = fav;
+  document.getElementById('statPages').textContent   = d.totalPages || 0;
 
   const total = want + read + fav || 1;
   document.getElementById('distWant').style.width = (want / total * 100) + '%';
   document.getElementById('distRead').style.width = (read / total * 100) + '%';
   document.getElementById('distFav').style.width  = (fav  / total * 100) + '%';
+
+  // Monthly chart
+  const chartData = d.monthlyData || [];
+  const months = [];
+  for (let i = 11; i >= 0; i--) {
+    const d2 = new Date(); d2.setMonth(d2.getMonth() - i);
+    months.push({ key: d2.toISOString().slice(0, 7), label: d2.toLocaleString('default', { month: 'short' }) });
+  }
+  const maxC = Math.max(1, ...chartData.map(r => r.count));
+  document.getElementById('monthChart').innerHTML = `<div class="month-chart">${months.map(m => {
+    const row = chartData.find(r => r.month === m.key); const c = row ? row.count : 0;
+    const pct = Math.round(c / maxC * 100);
+    return `<div class="month-col"><div class="month-bar-wrap"><div class="month-bar" style="height:${pct}%" title="${c} book${c !== 1 ? 's' : ''}"></div></div><div class="month-label">${m.label}</div></div>`;
+  }).join('')}</div>`;
+
+  // Heatmap
+  const hmMap = {}; (d.heatmapData || []).forEach(r => { hmMap[r.day] = r.count; });
+  const today = new Date(); const cells = [];
+  for (let i = 364; i >= 0; i--) {
+    const dt = new Date(today); dt.setDate(dt.getDate() - i);
+    const k = dt.toISOString().slice(0, 10); const c = hmMap[k] || 0;
+    const lvl = c === 0 ? 0 : c === 1 ? 1 : c <= 3 ? 2 : 3;
+    cells.push(`<div class="heat-cell heat-${lvl}" title="${k}: ${c}"></div>`);
+  }
+  document.getElementById('heatmapGrid').innerHTML = cells.join('');
+
+  // Share card
+  document.getElementById('sc-read').textContent  = read;
+  document.getElementById('sc-pages').textContent = d.totalPages || '—';
+  document.getElementById('sc-want').textContent  = want;
+  document.getElementById('sc-fav').textContent   = fav;
+  document.getElementById('shareBtn').onclick = () => {
+    const m = document.getElementById('shareModal'); m.style.display = 'flex';
+  };
 
   // Goal
   const goal = d.goal || {};

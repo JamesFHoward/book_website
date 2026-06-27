@@ -5,6 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Bookshelf</title>
 <link rel="stylesheet" href="/style.css">
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#1F3D2E">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Bookshelf">
 </head>
 <body>
 <div class="wrap">
@@ -29,21 +33,39 @@
     <button class="tab" data-tab="want">Want to Read<span class="count" id="countWant">0</span></button>
     <button class="tab" data-tab="read">Already Read<span class="count" id="countRead">0</span></button>
     <button class="tab" data-tab="fav">Favorites<span class="count" id="countFav">0</span></button>
+    <button class="tab" data-tab="dnf">Did Not Finish<span class="count" id="countDnf">0</span></button>
+    <button class="tab" data-tab="collections">Collections</button>
   </div>
 
   <div id="content"></div>
 </div>
 
 <!-- background loaded dynamically below via ?bg= param -->
+<div id="toastEl" class="toast"></div>
 <script>
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(() => {});
 let lists = { want: {}, read: {}, fav: {} };
 let lastResults = [];
 let recommendations = [];
 let activeTab = 'recs';
 let readingList = [];   // currently reading books
 let readingGoal = null; // { year, goal, read } for current year
+let dnfList = [];       // did not finish books
+let collections = [];   // user collections
+let activeSort = 'date'; // sort state for shelf tabs
 
-// Cover lookup cache — persists across re-renders this session
+let _undoTimer = null;
+function showToast(msg, onUndo) {
+  const el = document.getElementById('toastEl');
+  if (_undoTimer) clearTimeout(_undoTimer);
+  el.innerHTML = `<span>${msg}</span>${onUndo ? '<button class="toast-undo">Undo</button>' : ''}`;
+  el.classList.add('toast-show');
+  if (onUndo) el.querySelector('.toast-undo').addEventListener('click', () => { clearTimeout(_undoTimer); onUndo(); hideToast(); });
+  _undoTimer = setTimeout(hideToast, 5000);
+}
+function hideToast() { document.getElementById('toastEl').classList.remove('toast-show'); }
+
+// Cover lookup cache
 const coverLookupCache = new Map();
 async function lookupCover(book) {
   const key = (book.title || '').toLowerCase().trim();
@@ -71,15 +93,24 @@ async function checkAuth(){
   const res = await fetch('/api/me');
   const data = await res.json();
   if (!data.loggedIn) { window.location.href = '/index.html'; return; }
+  // Dark mode init
+  const darkPref = localStorage.getItem('darkMode') === 'true';
+  if (darkPref) document.documentElement.classList.add('dark');
   document.getElementById('userchip').innerHTML =
     `<div class="userchip-name">Signed in as <strong>${data.username}</strong></div>
      <div class="userchip-actions">
+       <button id="darkToggle" class="nav-btn nav-btn-back" style="font-size:13px;padding:7px 12px;">${darkPref ? '☀ Light' : '🌙 Dark'}</button>
        <a href="/profile.html" class="nav-btn nav-btn-profile">My profile</a>
        <button id="logoutBtn" class="nav-btn nav-btn-signout">Sign out</button>
      </div>`;
   document.getElementById('logoutBtn').addEventListener('click', async () => {
     await fetch('/api/logout', { method: 'POST' });
     window.location.href = '/index.html';
+  });
+  document.getElementById('darkToggle').addEventListener('click', () => {
+    const isDark = document.documentElement.classList.toggle('dark');
+    localStorage.setItem('darkMode', isDark);
+    document.getElementById('darkToggle').textContent = isDark ? '☀ Light' : '🌙 Dark';
   });
 }
 
@@ -135,12 +166,20 @@ async function loadReading(){
   }
 }
 
+async function loadDnf() {
+  try {
+    const r = await fetch('/api/dnf');
+    dnfList = r.ok ? await r.json() : [];
+  } catch (_) { dnfList = []; }
+}
+
 function updateCounts(){
   const n = v => v || '';
   document.getElementById('countWant').textContent    = n(Object.keys(lists.want).length);
   document.getElementById('countRead').textContent    = n(Object.keys(lists.read).length);
   document.getElementById('countFav').textContent     = n(Object.keys(lists.fav).length);
   document.getElementById('countReading').textContent = n(readingList.length);
+  document.getElementById('countDnf').textContent = n(dnfList.length);
 }
 
 function bookKey(b){ return b.key || (b.title + '::' + (b.author_name ? b.author_name[0] : '')); }
@@ -254,8 +293,16 @@ function renderCard(b, idKey){
           delete lists.want[k];
         }
       } else if (action === 'remove') {
+        const savedBook = { ...lists[activeTab][k] };
+        const savedTab = activeTab;
         await fetch(`/api/lists/${activeTab}/${encodeURIComponent(k)}`, { method: 'DELETE' });
         delete lists[activeTab][k];
+        updateCounts(); renderActiveTab();
+        showToast(`Removed "${title}"`, async () => {
+          const rv = await fetch(`/api/lists/${savedTab}/toggle`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key: k, title, author, cover_i }) });
+          if ((await rv.json()).ok) { lists[savedTab][k] = savedBook; updateCounts(); if (activeTab === savedTab) renderActiveTab(); }
+        });
+        return;
       }
       updateCounts();
       renderActiveTab();
@@ -543,6 +590,51 @@ function renderRecommendations(){
       }
     }
 
+    // Feature 9: Because you loved X
+    if (activeGenre === 'all') {
+      const ratedBooks = Object.values(lists.read || {}).filter(b => (b.rating || 0) >= 4).sort((a, b) => (b.rating || 0) - (a.rating || 0));
+      if (ratedBooks.length) {
+        const loved = ratedBooks[0];
+        const lovedSect = document.createElement('div');
+        lovedSect.className = 'genre-section';
+        const lh = document.createElement('h2'); lh.className = 'genre-header';
+        lh.innerHTML = `<span class="genre-dot" style="background:var(--gold)"></span>Because you loved <em>${escHtml(loved.title)}</em>`;
+        lovedSect.appendChild(lh);
+        const lg = document.createElement('div'); lg.className = 'rec-genre-grid';
+        lg.innerHTML = '<div style="color:#9a8e78;font-style:italic;font-size:13px;font-family:Georgia,serif;grid-column:1/-1">Loading…</div>';
+        lovedSect.appendChild(lg);
+        sectionsWrap.appendChild(lovedSect);
+        const lq = loved.author ? `author:${loved.author}` : loved.title;
+        fetch(`/api/search?q=${encodeURIComponent(lq)}`)
+          .then(r => r.json())
+          .then(books => {
+            if (renderEpoch !== epoch) return;
+            const filtered = (Array.isArray(books) ? books : []).filter(b => b.cover_i && (b.title || '').toLowerCase() !== (loved.title || '').toLowerCase()).slice(0, 10);
+            lg.innerHTML = '';
+            if (!filtered.length) { lovedSect.remove(); return; }
+            filtered.forEach(b => lg.appendChild(makeRecCard(b, 'Recommendation', '#1F3D2E', true)));
+          }).catch(() => lovedSect.remove());
+      }
+    }
+
+    // Feature 10: New releases
+    if (activeGenre === 'all' && scored.length) {
+      const topG = scored[0];
+      const newSect = document.createElement('div'); newSect.className = 'genre-section';
+      const nh = document.createElement('h2'); nh.className = 'genre-header';
+      nh.innerHTML = `<span class="genre-dot" style="background:#c06030"></span>New &amp; Recent in ${escHtml(topG.genre)}`;
+      newSect.appendChild(nh);
+      const ng = document.createElement('div'); ng.className = 'rec-genre-grid';
+      newSect.appendChild(ng);
+      sectionsWrap.appendChild(newSect);
+      fetch(`/api/discover/new-releases?genre=${encodeURIComponent(topG.genre)}`)
+        .then(r => r.json()).then(books => {
+          if (renderEpoch !== epoch) return;
+          if (!Array.isArray(books) || !books.length) { newSect.remove(); return; }
+          books.forEach(b => ng.appendChild(makeRecCard(b, topG.genre, '#c06030', true)));
+        }).catch(() => newSect.remove());
+    }
+
     for (const section of scored){
       // Skip genres not matching the active filter
       if (activeGenre !== 'all' && section.genre !== activeGenre) continue;
@@ -626,6 +718,7 @@ function showBookModal({ title, author, cover_i, cover_isbn, blurb, series, mood
         </div>
       </div>
       ${blurb ? `<div class="rec-modal-blurb">${escHtml(blurb)}</div>` : ''}
+      <button class="rec-modal-desc-btn" id="modalDescBtn">📖 Read description</button>
       <div class="rec-modal-description" id="modalDesc" style="display:none"></div>
       ${(moods||[]).filter(m=>REC_MOOD_LABELS[m]).length ? `
         <div class="rec-modal-moods">
@@ -762,33 +855,53 @@ function showBookModal({ title, author, cover_i, cover_isbn, blurb, series, mood
   // faded placeholders and upgrade to the real OL key in the background.
   renderButtons();
 
-  const descEl = overlay.querySelector('#modalDesc');
+  const descEl  = overlay.querySelector('#modalDesc');
+  const descBtn = overlay.querySelector('#modalDescBtn');
+  let _resolveDescKey;
+  const _descKeyPromise = new Promise(resolve => { _resolveDescKey = resolve; });
+  let _descText = null;
 
   function showDescription(text) {
     if (!text || !descEl) return;
-    // Trim to ~500 chars and strip markdown-style links
     const clean = text.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1').trim();
-    descEl.textContent = clean.length > 520 ? clean.slice(0, 520) + '…' : clean;
+    if (blurb) {
+      const bp = blurb.trim().slice(0, 80).toLowerCase();
+      if (bp && clean.slice(0, 80).toLowerCase() === bp) return;
+    }
+    let display;
+    if (clean.length <= 600) {
+      display = clean;
+    } else {
+      const sub = clean.slice(0, 600);
+      const last = Math.max(sub.lastIndexOf('.'), sub.lastIndexOf('!'), sub.lastIndexOf('?'));
+      display = last > 100 ? clean.slice(0, last + 1) : sub + '…';
+    }
+    _descText = display;
+    descEl.textContent = display;
     descEl.style.display = '';
+    if (descBtn) descBtn.style.display = 'none';
+  }
+
+  if (descBtn) {
+    descBtn.addEventListener('click', async () => {
+      if (_descText) { showDescription(_descText); return; }
+      descBtn.textContent = '⏳ Loading…'; descBtn.disabled = true;
+      try {
+        const wk = await _descKeyPromise;
+        if (wk) {
+          const r = await fetch(`/api/book/${wk}/description`);
+          const d = await r.json();
+          if (d.description) showDescription(d.description);
+          else { descBtn.textContent = 'No description available'; }
+        } else { descBtn.textContent = 'No description available'; }
+      } catch { descBtn.textContent = 'No description available'; }
+    });
   }
 
   if (olBook) {
-    // Show first_sentence immediately while full description loads
-    const fs = olBook.first_sentence;
-    if (fs && fs.length) {
-      const s = typeof fs[0] === 'string' ? fs[0] : (fs[0]?.value || '');
-      if (s) showDescription(s);
-    }
-    // Fetch full description from OL work API
     const workKey = (olBook.key || '').replace('/works/', '');
-    if (workKey) {
-      fetch(`/api/book/${workKey}/description`)
-        .then(r => r.json())
-        .then(d => { if (d.description) showDescription(d.description); })
-        .catch(() => {});
-    }
+    _resolveDescKey(workKey || null);
   } else {
-    // Rec book — find OL key in background, then fetch description
     (async () => {
       try {
         const res     = await fetch(`/api/search?q=${encodeURIComponent(title + ' ' + (author||''))}`);
@@ -800,17 +913,13 @@ function showBookModal({ title, author, cover_i, cover_isbn, blurb, series, mood
           currentAuthor = (ob.author_name||[])[0] || author || '';
           currentCover  = ob.cover_i || cover_i || null;
           currentPages  = ob.number_of_pages_median || pages || null;
-          renderButtons(); // upgrade from placeholders to live buttons
-          // Fetch description now that we have the OL key
+          renderButtons();
           const wk = (ob.key || '').replace('/works/', '');
-          if (wk) {
-            fetch(`/api/book/${wk}/description`)
-              .then(r => r.json())
-              .then(d => { if (d.description) showDescription(d.description); })
-              .catch(() => {});
-          }
+          _resolveDescKey(wk || null);
+        } else {
+          _resolveDescKey(null);
         }
-      } catch (_) {}
+      } catch (_) { _resolveDescKey(null); }
     })();
   }
 }
@@ -961,6 +1070,18 @@ function renderReading(){
     const pctPages = tp > 0 ? Math.min(100, Math.round((cp / tp) * 100)) : 0;
     const started = book.started_at ? new Date(book.started_at).toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' }) : '';
 
+    let paceHtml = '';
+    if (cp > 0 && book.started_at) {
+      const daysElapsed = Math.max(1, Math.round((Date.now() - new Date(book.started_at)) / 86400000));
+      const ppd = +(cp / daysElapsed).toFixed(1);
+      if (tp > cp && ppd > 0) {
+        const daysLeft = Math.ceil((tp - cp) / ppd);
+        paceHtml = `${ppd} pages/day · ~${daysLeft} day${daysLeft !== 1 ? 's' : ''} to finish`;
+      } else if (ppd > 0) {
+        paceHtml = `${ppd} pages/day`;
+      }
+    }
+
     const card = document.createElement('div');
     card.className = 'reading-card';
     card.innerHTML = `
@@ -995,8 +1116,10 @@ function renderReading(){
           <input class="reading-page-total" type="number" min="1" placeholder="total pages" value="${tp || ''}" title="Total pages">
           <span class="reading-total-suffix">pages</span>
         </div>
+        <div class="reading-pace" id="pace-${escHtml(book.key||book.book_key||'')}"></div>
         <div class="reading-actions">
           <button class="reading-finish-btn">✓ Finished</button>
+          <button class="reading-dnf-btn reading-remove-btn">DNF</button>
           <button class="reading-remove-btn">Remove</button>
         </div>
       </div>
@@ -1008,6 +1131,8 @@ function renderReading(){
     const progText   = card.querySelector('.reading-prog-text');
     const progPct    = card.querySelector('.reading-prog-pct');
     const barFill    = card.querySelector('.reading-bar-fill');
+    const paceEl     = card.querySelector('.reading-pace');
+    if (paceEl && paceHtml) paceEl.textContent = paceHtml;
 
     async function saveProgress(cpVal, tpVal) {
       await fetch('/api/reading/progress', {
@@ -1056,15 +1181,23 @@ function renderReading(){
       await fetch('/api/reading/finish', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ key: book.key, title: book.title, author: book.author, cover_i: book.cover_i }),
+        body: JSON.stringify({ key: book.key, title: book.title, author: book.author, cover_i: book.cover_i, total_pages: parseInt(totalInput?.value) || book.total_pages || null }),
       });
       await Promise.all([loadLists(), loadReading()]);
       updateCounts();
       renderReading();
     });
 
+    // DNF
+    card.querySelector('.reading-dnf-btn').addEventListener('click', async () => {
+      await fetch('/api/dnf/add', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key: book.key, title: book.title, author: book.author, cover_i: book.cover_i, cover_isbn: book.cover_isbn }) });
+      readingList = readingList.filter(r => r.key !== book.key);
+      dnfList.unshift({ key: book.key, title: book.title, author: book.author, cover_i: book.cover_i, cover_isbn: book.cover_isbn, note: null, added_at: new Date().toISOString() });
+      updateCounts(); renderReading();
+    });
+
     // Remove
-    card.querySelector('.reading-remove-btn').addEventListener('click', async () => {
+    card.querySelector('.reading-remove-btn:last-child').addEventListener('click', async () => {
       await fetch(`/api/reading/${encodeURIComponent(book.key)}`, { method: 'DELETE' });
       await loadReading();
       updateCounts();
@@ -1079,6 +1212,8 @@ function renderReading(){
 function renderActiveTab(){
   if (activeTab === 'recs') { renderRecommendations(); return; }
   if (activeTab === 'reading') { renderReading(); return; }
+  if (activeTab === 'dnf') { renderDnf(); return; }
+  if (activeTab === 'collections') { renderCollections(); return; }
 
   const content = document.getElementById('content');
   content.innerHTML = '';
@@ -1102,12 +1237,180 @@ function renderActiveTab(){
       content.innerHTML = `<div class="empty">${labels[activeTab]}</div>`;
       return;
     }
+
+    // Sort bar
+    const sortOptions = [
+      { key: 'date', label: 'Date added' },
+      { key: 'title', label: 'Title A–Z' },
+      { key: 'author', label: 'Author A–Z' },
+      ...(activeTab === 'read' ? [{ key: 'rating', label: 'Rating ↓' }] : []),
+    ];
+    const sortBar = document.createElement('div');
+    sortBar.className = 'sort-bar';
+    sortOptions.forEach(opt => {
+      const chip = document.createElement('button');
+      chip.className = 'sort-chip' + (activeSort === opt.key ? ' active' : '');
+      chip.textContent = opt.label;
+      chip.addEventListener('click', () => {
+        if (activeSort === opt.key) return;
+        activeSort = opt.key;
+        renderActiveTab();
+      });
+      sortBar.appendChild(chip);
+    });
+    content.appendChild(sortBar);
+
+    // Apply sort
+    if (activeSort === 'title') {
+      items.sort((a, b) => (a.book.title || '').localeCompare(b.book.title || ''));
+    } else if (activeSort === 'author') {
+      items.sort((a, b) => (a.book.author || '').localeCompare(b.book.author || ''));
+    } else if (activeSort === 'rating') {
+      items.sort((a, b) => (b.book.rating || 0) - (a.book.rating || 0));
+    }
+    // 'date' is default (already ordered by added_at DESC from API)
   }
 
   const grid = document.createElement('div');
   grid.className = 'grid';
   items.forEach(({book, key}) => grid.appendChild(renderCard(book, key)));
   content.appendChild(grid);
+}
+
+function renderDnf() {
+  const content = document.getElementById('content');
+  content.innerHTML = '';
+  if (!dnfList.length) {
+    content.innerHTML = '<div class="empty">No books marked as Did Not Finish yet.</div>';
+    return;
+  }
+  const grid = document.createElement('div');
+  grid.className = 'grid';
+  for (const book of dnfList) {
+    const cover = book.cover_i
+      ? `https://covers.openlibrary.org/b/id/${book.cover_i}-M.jpg`
+      : book.cover_isbn
+      ? `https://covers.openlibrary.org/b/isbn/${book.cover_isbn}-M.jpg`
+      : null;
+    const note = book.note || '';
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.innerHTML = `
+      <div class="cover">${cover ? `<img src="${escHtml(cover)}" alt="${escHtml(book.title)}">` : `<span class="cover-fallback">${escHtml((book.title||'?')[0])}</span>`}</div>
+      <div class="info">
+        <div class="title">${escHtml(book.title)}</div>
+        <div class="author">${escHtml(book.author || 'Unknown author')}</div>
+        <div class="actions">
+          <button class="pill remove" data-action="dnf-remove">Remove</button>
+        </div>
+        <div class="note-area">
+          <div class="note-display" style="display:${note ? 'block' : 'none'}">${escHtml(note)}</div>
+          <button class="note-toggle">${note ? '✏ Edit note' : '✏ Add note'}</button>
+          <div class="note-editor" style="display:none">
+            <textarea class="note-ta" placeholder="Why did you stop reading?">${escHtml(note)}</textarea>
+            <div class="note-btns">
+              <button class="note-save">Save</button>
+              <button class="note-cancel">Cancel</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+    card.querySelector('[data-action="dnf-remove"]').addEventListener('click', async () => {
+      await fetch(`/api/dnf/${encodeURIComponent(book.key)}`, { method: 'DELETE' });
+      dnfList = dnfList.filter(b => b.key !== book.key);
+      updateCounts(); renderDnf();
+    });
+    const noteToggle = card.querySelector('.note-toggle');
+    const noteEditor = card.querySelector('.note-editor');
+    const noteDisplay = card.querySelector('.note-display');
+    const noteTa = card.querySelector('.note-ta');
+    const noteSave = card.querySelector('.note-save');
+    const noteCancel = card.querySelector('.note-cancel');
+    noteToggle.addEventListener('click', () => { noteEditor.style.display = 'block'; noteToggle.style.display = 'none'; noteTa.focus(); });
+    noteCancel.addEventListener('click', () => { noteTa.value = book.note || ''; noteEditor.style.display = 'none'; noteToggle.style.display = ''; });
+    noteSave.addEventListener('click', async () => {
+      const newNote = noteTa.value.trim();
+      noteSave.disabled = true; noteSave.textContent = 'Saving…';
+      await fetch('/api/dnf/note', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key: book.key, note: newNote }) });
+      book.note = newNote || null;
+      noteDisplay.textContent = newNote; noteDisplay.style.display = newNote ? 'block' : 'none';
+      noteToggle.textContent = newNote ? '✏ Edit note' : '✏ Add note';
+      noteEditor.style.display = 'none'; noteToggle.style.display = '';
+      noteSave.disabled = false; noteSave.textContent = 'Save';
+    });
+    grid.appendChild(card);
+  }
+  content.appendChild(grid);
+}
+
+function renderCollections() {
+  const content = document.getElementById('content');
+  content.innerHTML = '';
+  const wrap = document.createElement('div');
+
+  const createForm = document.createElement('div');
+  createForm.style.cssText = 'display:flex;gap:8px;margin-bottom:20px;';
+  createForm.innerHTML = `<input type="text" id="newColName" placeholder="Collection name…" style="flex:1;margin-bottom:0;padding:9px 12px;font-size:14px;" maxlength="60"><button class="btn-primary" id="createColBtn" style="width:auto;padding:9px 18px;">Create</button>`;
+  wrap.appendChild(createForm);
+
+  const listEl = document.createElement('div');
+  listEl.style.cssText = 'display:flex;flex-direction:column;gap:10px;';
+
+  async function loadAndRenderCollections() {
+    const r = await fetch('/api/collections');
+    collections = r.ok ? await r.json() : [];
+    listEl.innerHTML = '';
+    if (!collections.length) {
+      listEl.innerHTML = '<div class="empty">No collections yet. Create one above.</div>';
+      return;
+    }
+    for (const col of collections) {
+      const row = document.createElement('div');
+      row.className = 'reading-card';
+      row.style.cursor = 'pointer';
+      row.innerHTML = `
+        <div class="reading-body">
+          <div class="reading-title">${escHtml(col.name)}</div>
+          <div class="reading-actions" style="margin-top:8px;">
+            <button class="reading-finish-btn col-view-btn">View books</button>
+            <button class="reading-remove-btn col-del-btn">Delete</button>
+          </div>
+          <div class="col-books" style="display:none;margin-top:12px;"></div>
+        </div>`;
+      row.querySelector('.col-del-btn').addEventListener('click', async e => {
+        e.stopPropagation();
+        await fetch(`/api/collections/${col.id}`, { method: 'DELETE' });
+        await loadAndRenderCollections();
+      });
+      row.querySelector('.col-view-btn').addEventListener('click', async e => {
+        e.stopPropagation();
+        const booksEl = row.querySelector('.col-books');
+        if (booksEl.style.display !== 'none') { booksEl.style.display = 'none'; return; }
+        booksEl.style.display = 'block';
+        booksEl.innerHTML = '<em style="font-size:13px;color:#857c68;">Loading…</em>';
+        const br = await fetch(`/api/collections/${col.id}/books`);
+        const books = br.ok ? await br.json() : [];
+        if (!books.length) { booksEl.innerHTML = '<em style="font-size:13px;color:#857c68;">No books yet.</em>'; return; }
+        booksEl.innerHTML = books.map(b => `<div style="font-family:Georgia,serif;font-size:14px;color:var(--forest);padding:4px 0;border-bottom:1px solid #ece5d2;">${escHtml(b.title)}${b.author ? ` <span style="color:#9a8e78;font-style:italic;">— ${escHtml(b.author)}</span>` : ''}</div>`).join('');
+      });
+      listEl.appendChild(row);
+    }
+  }
+
+  wrap.appendChild(listEl);
+  content.appendChild(wrap);
+
+  document.getElementById('createColBtn')?.addEventListener('click', async () => {
+    const name = document.getElementById('newColName').value.trim();
+    if (!name) return;
+    await fetch('/api/collections', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name }) });
+    document.getElementById('newColName').value = '';
+    await loadAndRenderCollections();
+  });
+  document.getElementById('newColName')?.addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('createColBtn').click(); });
+
+  loadAndRenderCollections();
 }
 
 function setActiveTabUI(tab){
@@ -1117,6 +1420,7 @@ function setActiveTabUI(tab){
 document.querySelectorAll('.tab').forEach(t => {
   t.addEventListener('click', async () => {
     activeTab = t.dataset.tab;
+    activeSort = 'date';
     setActiveTabUI(activeTab);
     if (activeTab === 'reading') {
       await loadReading();
@@ -1292,7 +1596,7 @@ function showScannedResults(isbns, resolved) {
 
 (async () => {
   await checkAuth();
-  await Promise.all([loadLists(), loadRecommendations(), loadReading()]);
+  await Promise.all([loadLists(), loadRecommendations(), loadReading(), loadDnf()]);
   updateCounts();
   renderActiveTab();
   prefetchMissingCovers();

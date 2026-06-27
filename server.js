@@ -70,12 +70,47 @@ db.exec(`
     UNIQUE(user_id, year),
     FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
   );
+
+  CREATE TABLE IF NOT EXISTS dnf_books (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    book_key TEXT NOT NULL,
+    title TEXT NOT NULL,
+    author TEXT,
+    cover_i INTEGER,
+    cover_isbn TEXT,
+    note TEXT,
+    added_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(user_id, book_key),
+    FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+  );
+
+  CREATE TABLE IF NOT EXISTS collections (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    name TEXT NOT NULL,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+  );
+
+  CREATE TABLE IF NOT EXISTS collection_books (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    collection_id INTEGER NOT NULL,
+    book_key TEXT NOT NULL,
+    title TEXT NOT NULL,
+    author TEXT,
+    cover_i INTEGER,
+    added_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(collection_id, book_key),
+    FOREIGN KEY(collection_id) REFERENCES collections(id) ON DELETE CASCADE
+  );
 `);
 
 // Migrations for databases that predate these columns
 try { db.exec('ALTER TABLE users ADD COLUMN email TEXT UNIQUE'); }         catch (_) {}
 try { db.exec('ALTER TABLE book_entries ADD COLUMN rating INTEGER'); }     catch (_) {}
 try { db.exec('ALTER TABLE book_entries ADD COLUMN note TEXT'); }          catch (_) {}
+try { db.exec('ALTER TABLE book_entries ADD COLUMN pages INTEGER'); }      catch (_) {}
 
 // ---------- Email ----------
 const mailer = (process.env.EMAIL_USER && process.env.EMAIL_PASS)
@@ -219,8 +254,21 @@ app.get('/api/profile', requireAuth, (req, res) => {
   const recent = db.prepare(
     `SELECT title, author, list_type, added_at FROM book_entries WHERE user_id = ? ORDER BY added_at DESC LIMIT 8`
   ).all(req.session.userId);
+  const totalPages = db.prepare("SELECT COALESCE(SUM(pages), 0) as total FROM book_entries WHERE user_id = ? AND list_type = 'read'").get(req.session.userId).total;
+  const monthlyData = db.prepare(`
+    SELECT substr(added_at,1,7) as month, COUNT(*) as count
+    FROM book_entries WHERE user_id = ? AND list_type = 'read'
+    AND added_at >= date('now', '-12 months')
+    GROUP BY month ORDER BY month ASC
+  `).all(req.session.userId);
+  const heatmapData = db.prepare(`
+    SELECT substr(added_at,1,10) as day, COUNT(*) as count
+    FROM book_entries WHERE user_id = ?
+    AND added_at >= date('now', '-365 days')
+    GROUP BY day
+  `).all(req.session.userId);
   res.json({
-    ...user, stats, readingCount, recent,
+    ...user, stats, readingCount, recent, totalPages, monthlyData, heatmapData,
     goal: { year, target: goalRow ? goalRow.goal_books : null, read: booksReadThisYear },
   });
 });
@@ -269,13 +317,13 @@ app.post('/api/reset-password', async (req, res) => {
 // ---------- Book list routes ----------
 app.get('/api/lists', requireAuth, (req, res) => {
   const rows = db.prepare(
-    'SELECT list_type, book_key, title, author, cover_i, rating, note FROM book_entries WHERE user_id = ?'
+    'SELECT list_type, book_key, title, author, cover_i, rating, note, added_at FROM book_entries WHERE user_id = ? ORDER BY added_at DESC'
   ).all(req.session.userId);
   const out = { want: {}, read: {}, fav: {} };
   for (const row of rows) {
     out[row.list_type][row.book_key] = {
       title: row.title, author: row.author, cover_i: row.cover_i,
-      key: row.book_key, rating: row.rating, note: row.note || null,
+      key: row.book_key, rating: row.rating, note: row.note || null, added_at: row.added_at,
     };
   }
   res.json(out);
@@ -379,13 +427,16 @@ app.patch('/api/reading/progress', requireAuth, (req, res) => {
 });
 
 app.post('/api/reading/finish', requireAuth, (req, res) => {
-  const { key, title, author, cover_i } = req.body;
+  const { key, title, author, cover_i, total_pages } = req.body;
   if (!key) return res.status(400).json({ error: 'Key required.' });
+  const row = db.prepare('SELECT total_pages FROM currently_reading WHERE user_id = ? AND book_key = ?').get(req.session.userId, key);
+  const pages = total_pages || (row ? row.total_pages : null);
   db.prepare('DELETE FROM currently_reading WHERE user_id = ? AND book_key = ?').run(req.session.userId, key);
   try {
     db.prepare(
-      'INSERT OR IGNORE INTO book_entries (user_id, list_type, book_key, title, author, cover_i) VALUES (?, ?, ?, ?, ?, ?)'
-    ).run(req.session.userId, 'read', key, title, author || null, cover_i || null);
+      'INSERT OR IGNORE INTO book_entries (user_id, list_type, book_key, title, author, cover_i, pages) VALUES (?, ?, ?, ?, ?, ?, ?)'
+    ).run(req.session.userId, 'read', key, title, author || null, cover_i || null, pages || null);
+    if (pages) db.prepare('UPDATE book_entries SET pages = ? WHERE user_id = ? AND list_type = ? AND book_key = ?').run(pages, req.session.userId, 'read', key);
   } catch (_) {}
   res.json({ ok: true });
 });
@@ -582,6 +633,145 @@ app.get('/api/covers/lookup', requireAuth, async (req, res) => {
   } catch {
     res.status(500).json({ error: 'Cover lookup failed.' });
   }
+});
+
+// ---------- DNF (Did Not Finish) ----------
+app.get('/api/dnf', requireAuth, (req, res) => {
+  const rows = db.prepare('SELECT book_key as key, title, author, cover_i, cover_isbn, note, added_at FROM dnf_books WHERE user_id = ? ORDER BY added_at DESC').all(req.session.userId);
+  res.json(rows);
+});
+
+app.post('/api/dnf/add', requireAuth, (req, res) => {
+  const { key, title, author, cover_i, cover_isbn } = req.body;
+  if (!key || !title) return res.status(400).json({ error: 'Key and title required.' });
+  db.prepare('DELETE FROM currently_reading WHERE user_id = ? AND book_key = ?').run(req.session.userId, key);
+  db.prepare('INSERT OR IGNORE INTO dnf_books (user_id, book_key, title, author, cover_i, cover_isbn) VALUES (?, ?, ?, ?, ?, ?)').run(req.session.userId, key, title, author || null, cover_i || null, cover_isbn || null);
+  res.json({ ok: true });
+});
+
+app.delete('/api/dnf/:key', requireAuth, (req, res) => {
+  db.prepare('DELETE FROM dnf_books WHERE user_id = ? AND book_key = ?').run(req.session.userId, req.params.key);
+  res.json({ ok: true });
+});
+
+app.patch('/api/dnf/note', requireAuth, (req, res) => {
+  const { key, note } = req.body;
+  if (!key) return res.status(400).json({ error: 'Key required.' });
+  db.prepare('UPDATE dnf_books SET note = ? WHERE user_id = ? AND book_key = ?').run(note ? String(note).slice(0, 2000) : null, req.session.userId, key);
+  res.json({ ok: true });
+});
+
+// ---------- Discover: similar ----------
+app.get('/api/discover/similar', requireAuth, async (req, res) => {
+  const { subject } = req.query;
+  if (!subject) return res.status(400).json({ error: 'subject required' });
+  const ck = 'similar:' + subject.toLowerCase().trim();
+  const hit = genreBookCache.get(ck);
+  if (hit && Date.now() - hit.ts < GENRE_BOOK_TTL) return res.json(hit.data);
+  try {
+    const upstream = await fetch(`https://openlibrary.org/search.json?subject=${encodeURIComponent(subject)}&limit=30&fields=${OL_FIELDS}&sort=rating`);
+    const json = await upstream.json();
+    const EXCLUDE_SUBJECTS = ['manga','comic','comics','graphic novel','graphic novels','manhwa','manhua','light novel','anime'];
+    const books = (json.docs || []).filter(b => {
+      if (!b.cover_i) return false;
+      const subs = (b.subject || []).map(s => s.toLowerCase());
+      return !EXCLUDE_SUBJECTS.some(ex => subs.some(s => s.includes(ex)));
+    });
+    genreBookCache.set(ck, { data: books, ts: Date.now() });
+    res.json(books);
+  } catch { res.status(500).json({ error: 'Failed.' }); }
+});
+
+// ---------- Discover: new releases ----------
+const newReleaseCache = new Map();
+const NEW_RELEASE_TTL = 4 * 60 * 60 * 1000;
+
+app.get('/api/discover/new-releases', requireAuth, async (req, res) => {
+  const { genre } = req.query;
+  if (!genre) return res.status(400).json({ error: 'genre required' });
+  const ck = 'new:' + genre.toLowerCase().trim();
+  const hit = newReleaseCache.get(ck);
+  if (hit && Date.now() - hit.ts < NEW_RELEASE_TTL) return res.json(hit.data);
+  try {
+    const upstream = await fetch(
+      `https://openlibrary.org/search.json?q=${encodeURIComponent(genre + ' fiction')}&sort=new&limit=40&fields=${OL_FIELDS}`
+    );
+    const json = await upstream.json();
+    const currentYear = new Date().getFullYear();
+    const EXCLUDE_SUBJECTS = ['manga','comic','comics','graphic novel','graphic novels','manhwa','manhua','light novel','anime'];
+    const books = (json.docs || []).filter(b => {
+      if (!b.cover_i) return false;
+      if (b.first_publish_year && b.first_publish_year < currentYear - 3) return false;
+      const subs = (b.subject || []).map(s => s.toLowerCase());
+      return !EXCLUDE_SUBJECTS.some(ex => subs.some(s => s.includes(ex)));
+    }).slice(0, 12);
+    newReleaseCache.set(ck, { data: books, ts: Date.now() });
+    res.json(books);
+  } catch { res.status(500).json({ error: 'Failed.' }); }
+});
+
+// ---------- CSV export ----------
+app.get('/api/export/csv', requireAuth, (req, res) => {
+  const rows = db.prepare(
+    'SELECT list_type, title, author, rating, note, pages, added_at FROM book_entries WHERE user_id = ? ORDER BY added_at DESC'
+  ).all(req.session.userId);
+  const header = 'List,Title,Author,Rating,Pages,Date Added,Review\n';
+  const csvRows = rows.map(r => {
+    const fields = [
+      r.list_type === 'want' ? 'Want to Read' : r.list_type === 'read' ? 'Read' : r.list_type === 'fav' ? 'Favourite' : r.list_type,
+      r.title || '',
+      r.author || '',
+      r.rating || '',
+      r.pages || '',
+      r.added_at ? r.added_at.slice(0,10) : '',
+      (r.note || '').replace(/\n/g,' '),
+    ];
+    return fields.map(f => `"${String(f).replace(/"/g, '""')}"`).join(',');
+  });
+  res.setHeader('Content-Type', 'text/csv');
+  res.setHeader('Content-Disposition', 'attachment; filename="bookshelf-export.csv"');
+  res.send(header + csvRows.join('\n'));
+});
+
+// ---------- Collections ----------
+app.get('/api/collections', requireAuth, (req, res) => {
+  const cols = db.prepare('SELECT id, name, created_at FROM collections WHERE user_id = ? ORDER BY created_at DESC').all(req.session.userId);
+  res.json(cols);
+});
+
+app.post('/api/collections', requireAuth, (req, res) => {
+  const { name } = req.body;
+  if (!name || !name.trim()) return res.status(400).json({ error: 'Name required.' });
+  const r = db.prepare('INSERT INTO collections (user_id, name) VALUES (?, ?)').run(req.session.userId, name.trim().slice(0,60));
+  res.json({ ok: true, id: r.lastInsertRowid });
+});
+
+app.delete('/api/collections/:id', requireAuth, (req, res) => {
+  db.prepare('DELETE FROM collections WHERE id = ? AND user_id = ?').run(Number(req.params.id), req.session.userId);
+  res.json({ ok: true });
+});
+
+app.get('/api/collections/:id/books', requireAuth, (req, res) => {
+  const col = db.prepare('SELECT id FROM collections WHERE id = ? AND user_id = ?').get(Number(req.params.id), req.session.userId);
+  if (!col) return res.status(404).json({ error: 'Not found.' });
+  const books = db.prepare('SELECT book_key as key, title, author, cover_i, added_at FROM collection_books WHERE collection_id = ? ORDER BY added_at DESC').all(col.id);
+  res.json(books);
+});
+
+app.post('/api/collections/:id/books', requireAuth, (req, res) => {
+  const col = db.prepare('SELECT id FROM collections WHERE id = ? AND user_id = ?').get(Number(req.params.id), req.session.userId);
+  if (!col) return res.status(404).json({ error: 'Not found.' });
+  const { key, title, author, cover_i } = req.body;
+  if (!key || !title) return res.status(400).json({ error: 'Key and title required.' });
+  db.prepare('INSERT OR IGNORE INTO collection_books (collection_id, book_key, title, author, cover_i) VALUES (?, ?, ?, ?, ?)').run(col.id, key, title, author || null, cover_i || null);
+  res.json({ ok: true });
+});
+
+app.delete('/api/collections/:id/books/:key', requireAuth, (req, res) => {
+  const col = db.prepare('SELECT id FROM collections WHERE id = ? AND user_id = ?').get(Number(req.params.id), req.session.userId);
+  if (!col) return res.status(404).json({ error: 'Not found.' });
+  db.prepare('DELETE FROM collection_books WHERE collection_id = ? AND book_key = ?').run(col.id, req.params.key);
+  res.json({ ok: true });
 });
 
 app.listen(PORT, () => console.log(`Bookshelf running at http://localhost:${PORT}`));
