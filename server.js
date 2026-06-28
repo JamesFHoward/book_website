@@ -267,9 +267,31 @@ app.get('/api/profile', requireAuth, (req, res) => {
     AND added_at >= date('now', '-365 days')
     GROUP BY day
   `).all(req.session.userId);
+  const activeWeeks = db.prepare(`
+    SELECT COUNT(DISTINCT strftime('%Y-%W', added_at)) as count
+    FROM book_entries WHERE user_id = ? AND added_at >= date('now', '-52 weeks')
+  `).get(req.session.userId).count;
+
+  const weekRows = db.prepare(`
+    SELECT DISTINCT strftime('%Y-%W', added_at) as wk
+    FROM book_entries WHERE user_id = ?
+    ORDER BY wk DESC LIMIT 52
+  `).all(req.session.userId);
+
+  let currentStreak = 0;
+  const todayWeek = new Date();
+  for (let i = 0; i < weekRows.length; i++) {
+    const expectedDate = new Date(todayWeek);
+    expectedDate.setDate(expectedDate.getDate() - i * 7);
+    const expectedWk = expectedDate.getFullYear() + '-' + String(Math.ceil((expectedDate - new Date(expectedDate.getFullYear(), 0, 1)) / 604800000)).padStart(2, '0');
+    if (weekRows[i].wk === expectedWk) currentStreak++;
+    else break;
+  }
+
   res.json({
     ...user, stats, readingCount, recent, totalPages, monthlyData, heatmapData,
     goal: { year, target: goalRow ? goalRow.goal_books : null, read: booksReadThisYear },
+    currentStreak, activeWeeks,
   });
 });
 

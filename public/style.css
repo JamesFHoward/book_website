@@ -167,11 +167,13 @@ button{font-family:Georgia,serif;cursor:pointer;}
 
 /* ---- Star ratings (Already Read tab) ---- */
 .rating-row{display:flex;gap:2px;margin-top:7px;}
-.rating-star{font-size:20px;color:#cfc4a0;cursor:pointer;transition:color .1s;user-select:none;line-height:1;}
+.rating-star{font-size:20px;color:#ccc5a8;cursor:pointer;transition:color .1s;user-select:none;line-height:1;}
 .rating-star.filled{color:var(--gold);}
 .rating-star:hover,.rating-star:hover~.rating-star{color:var(--gold);}
 .rating-row:hover .rating-star{color:var(--gold);}
-.rating-row .rating-star:hover~.rating-star{color:#cfc4a0;}
+.rating-row .rating-star:hover~.rating-star{color:#ccc5a8;}
+.author-link{cursor:pointer;border-bottom:1px dotted rgba(31,61,46,0.35);transition:border-color 0.15s,color 0.15s;}
+.author-link:hover{color:var(--forest);border-bottom-color:var(--forest);}
 
 /* ---- Recommendations tab ---- */
 .recs-container{display:flex;flex-direction:column;gap:36px;}

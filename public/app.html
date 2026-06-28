@@ -199,6 +199,15 @@ function starsHTML(current){
   return html;
 }
 
+function favStarsHTML(rating){
+  let html = '<div class="rating-row" style="margin-top:5px;">';
+  for (let i = 1; i <= 5; i++){
+    html += `<span class="rating-star${i <= rating ? ' filled' : ''}" style="font-size:14px;cursor:default;">★</span>`;
+  }
+  html += '</div>';
+  return html;
+}
+
 function escHtml(s) {
   return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
@@ -212,7 +221,7 @@ function renderCard(b, idKey){
   const inReading = readingList.some(r => r.key === k);
   const author = b.author_name ? b.author_name.join(', ') : (b.author || 'Unknown author');
   const title  = b.title || '(untitled)';
-  const rating = (activeTab === 'read' && lists.read[k]) ? (lists.read[k].rating || 0) : 0;
+  const rating = (activeTab === 'read' || activeTab === 'fav') ? (lists.read[k]?.rating || 0) : 0;
   const note   = (activeTab !== 'search' && lists[activeTab]?.[k]?.note) || '';
 
   const div = document.createElement('div');
@@ -222,7 +231,7 @@ function renderCard(b, idKey){
     <div class="cover">${cover ? `<img src="${cover}" alt="Cover of ${escHtml(title)}">` : `<span class="cover-fallback">${escHtml(title[0])}</span>`}</div>
     <div class="info">
       <div class="title">${escHtml(title)}</div>
-      <div class="author">${escHtml(author)}</div>
+      <div class="author"><span class="author-link" data-author="${escHtml(author)}">${escHtml(author)}</span></div>
       <div class="actions">
         <button class="pill ${inWant?'active':''}" data-action="want">${inWant?'✓ Want':'+ Want'}</button>
         <button class="pill ${inRead?'active':''}" data-action="read">${inRead?'✓ Read':'+ Read'}</button>
@@ -231,6 +240,7 @@ function renderCard(b, idKey){
         ${activeTab !== 'search' ? '<button class="pill remove" data-action="remove">Remove</button>' : ''}
       </div>
       ${activeTab === 'read' ? starsHTML(rating) : ''}
+      ${activeTab === 'fav' && rating > 0 ? favStarsHTML(rating) : ''}
       ${activeTab !== 'search' ? `
         <div class="note-area${activeTab === 'read' ? ' note-area--review' : ''}">
           <div class="note-display${activeTab === 'read' ? ' note-display--review' : ''}" style="display:${note?'block':'none'}"></div>
@@ -377,6 +387,17 @@ function renderCard(b, idKey){
       showSearchModal(b);
     });
     div.style.cursor = 'pointer';
+  }
+
+  const authorLink = div.querySelector('.author-link');
+  if (authorLink) {
+    authorLink.addEventListener('click', e => {
+      e.stopPropagation();
+      const a = authorLink.dataset.author;
+      document.getElementById('searchInput').value = 'author:' + a;
+      document.querySelector('[data-tab="search"]').click();
+      document.getElementById('searchBtn').click();
+    });
   }
 
   return div;
@@ -617,6 +638,39 @@ function renderRecommendations(){
       }
     }
 
+    if (activeGenre === 'all' && readingList.length > 0) {
+      const currentBook = readingList[0];
+      const readingSect = document.createElement('div');
+      readingSect.className = 'genre-section';
+      const rh = document.createElement('h2'); rh.className = 'genre-header';
+      rh.innerHTML = `<span class="genre-dot" style="background:var(--gold)"></span>Because you're reading <em>${escHtml(currentBook.title)}</em>`;
+      readingSect.appendChild(rh);
+      const rg = document.createElement('div'); rg.className = 'rec-genre-grid';
+      rg.innerHTML = '<div style="color:#9a8e78;font-style:italic;font-size:13px;font-family:Georgia,serif;grid-column:1/-1">Loading…</div>';
+      readingSect.appendChild(rg);
+      sectionsWrap.appendChild(readingSect);
+      const rq = currentBook.author ? `author:${currentBook.author}` : currentBook.title;
+      const allShelfTitles = new Set([
+        ...Object.values(lists.want).map(b => (b.title||'').toLowerCase()),
+        ...Object.values(lists.read).map(b => (b.title||'').toLowerCase()),
+        ...Object.values(lists.fav).map(b => (b.title||'').toLowerCase()),
+        ...readingList.map(b => (b.title||'').toLowerCase()),
+      ]);
+      fetch(`/api/search?q=${encodeURIComponent(rq)}`)
+        .then(r => r.json())
+        .then(books => {
+          if (renderEpoch !== epoch) return;
+          const filtered = (Array.isArray(books) ? books : []).filter(b =>
+            b.cover_i &&
+            (b.title||'').toLowerCase() !== (currentBook.title||'').toLowerCase() &&
+            !allShelfTitles.has((b.title||'').toLowerCase())
+          ).slice(0, 8);
+          rg.innerHTML = '';
+          if (!filtered.length) { readingSect.remove(); return; }
+          filtered.forEach(b => rg.appendChild(makeRecCard(b, 'Recommendation', '#1F3D2E', true)));
+        }).catch(() => readingSect.remove());
+    }
+
     // Feature 10: New releases
     if (activeGenre === 'all' && scored.length) {
       const topG = scored[0];
@@ -714,7 +768,7 @@ function showBookModal({ title, author, cover_i, cover_isbn, blurb, series, mood
           ${genre ? `<div class="rec-modal-genre">${escHtml(genre)}</div>` : ''}
           <div class="rec-modal-title">${escHtml(title)}</div>
           ${series ? `<div class="rec-modal-series">${escHtml(series)}</div>` : ''}
-          <div class="rec-modal-author">by ${escHtml(author||'Unknown')}</div>
+          <div class="rec-modal-author">by <span class="author-link" data-author="${escHtml(author||'Unknown')}">${escHtml(author||'Unknown')}</span></div>
         </div>
       </div>
       ${blurb ? `<div class="rec-modal-blurb">${escHtml(blurb)}</div>` : ''}
@@ -739,6 +793,18 @@ function showBookModal({ title, author, cover_i, cover_isbn, blurb, series, mood
   overlay.querySelector('.rec-modal-close').addEventListener('click', closeModal);
   document.addEventListener('keydown', escHandler);
   document.body.appendChild(overlay);
+
+  const modalAuthorLink = overlay.querySelector('.rec-modal-author .author-link');
+  if (modalAuthorLink) {
+    modalAuthorLink.addEventListener('click', e => {
+      e.stopPropagation();
+      const a = modalAuthorLink.dataset.author;
+      closeModal();
+      document.getElementById('searchInput').value = 'author:' + a;
+      document.querySelector('[data-tab="search"]').click();
+      document.getElementById('searchBtn').click();
+    });
+  }
 
   const actionsEl = overlay.querySelector('#modalActions');
 
@@ -1221,6 +1287,7 @@ function renderActiveTab(){
   const content = document.getElementById('content');
   content.innerHTML = '';
   let items = [];
+  let filterInput = null;
 
   if (activeTab === 'search') {
     items = lastResults.map(b => ({ book: b, key: bookKey(b) }));
@@ -1261,6 +1328,16 @@ function renderActiveTab(){
       });
       sortBar.appendChild(chip);
     });
+    if (activeTab === 'read') {
+      const filterWrap = document.createElement('div');
+      filterWrap.style.cssText = 'margin-bottom:12px;';
+      filterInput = document.createElement('input');
+      filterInput.type = 'text';
+      filterInput.placeholder = 'Filter by title, author, or review…';
+      filterInput.style.cssText = 'width:100%;padding:8px 14px;font-family:Georgia,serif;font-size:14px;border:1.3px solid #d0c9b2;border-radius:20px;background:none;outline:none;color:var(--ink);';
+      filterWrap.appendChild(filterInput);
+      content.appendChild(filterWrap);
+    }
     content.appendChild(sortBar);
 
     // Apply sort
@@ -1278,6 +1355,16 @@ function renderActiveTab(){
   grid.className = 'grid';
   items.forEach(({book, key}) => grid.appendChild(renderCard(book, key)));
   content.appendChild(grid);
+
+  if (filterInput) {
+    filterInput.addEventListener('input', () => {
+      const q = filterInput.value.trim().toLowerCase();
+      grid.querySelectorAll('.card').forEach(card => {
+        const text = card.textContent.toLowerCase();
+        card.style.display = q && !text.includes(q) ? 'none' : '';
+      });
+    });
+  }
 }
 
 function renderDnf() {
