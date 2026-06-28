@@ -13,7 +13,7 @@ const app  = express();
 const PORT = process.env.PORT || 3000;
 
 // ---------- Database ----------
-const db = new Database(path.join(__dirname, 'db', 'books.db'));
+const db = new Database(process.env.DB_PATH || path.join(__dirname, 'db', 'books.db'));
 db.pragma('journal_mode = WAL');
 
 db.exec(`
@@ -121,6 +121,7 @@ const mailer = (process.env.EMAIL_USER && process.env.EMAIL_PASS)
       auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS },
     })
   : null;
+if (!mailer) console.warn('[email] Not configured — set EMAIL_USER and EMAIL_PASS in .env to enable email sending.');
 
 function sendMail(to, subject, html) {
   if (!mailer) return Promise.resolve();
@@ -130,29 +131,47 @@ function sendMail(to, subject, html) {
   });
 }
 
+function emailShell(bodyContent) {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#FAF8F3;font-family:Georgia,'Times New Roman',serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#FAF8F3;padding:40px 20px;">
+<tr><td align="center">
+<table cellpadding="0" cellspacing="0" style="max-width:520px;width:100%;background:#ffffff;border:1px solid #e3dbc2;border-radius:8px;overflow:hidden;">
+<tr><td style="background:#1F3D2E;padding:24px 36px;">
+  <p style="margin:0;font-size:24px;font-weight:700;color:#FAF8F3;letter-spacing:-0.01em;">Bookshelf</p>
+  <p style="margin:5px 0 0;font-size:13px;font-style:italic;color:#a8c8b4;">Track what you read. Discover what&rsquo;s next.</p>
+</td></tr>
+<tr><td style="padding:32px 36px;">${bodyContent}</td></tr>
+<tr><td style="padding:16px 36px;background:#f7f3ea;border-top:1px solid #e3dbc2;">
+  <p style="margin:0;font-size:12px;color:#9a8e78;">This email was sent by Bookshelf. If you didn&rsquo;t expect it, you can safely ignore it.</p>
+</td></tr>
+</table>
+</td></tr>
+</table>
+</body>
+</html>`;
+}
+
 function welcomeEmail(username) {
-  return `
-    <div style="font-family:Georgia,serif;max-width:480px;margin:0 auto;color:#1a0c04">
-      <h2 style="font-weight:normal;letter-spacing:.1em">Welcome to Bookshelf</h2>
-      <p>Hi ${username},</p>
-      <p>Your account is all set. Start tracking what you've read — and what's next.</p>
-      <p style="margin-top:32px;font-size:12px;color:#888">You're receiving this because you signed up at Bookshelf.</p>
-    </div>`;
+  return emailShell(`
+  <p style="margin:0 0 14px;font-size:20px;font-weight:700;color:#1F3D2E;">Welcome, ${username}!</p>
+  <p style="margin:0 0 14px;font-size:15px;line-height:1.65;color:#4a4238;">Your Bookshelf account is all set. Search for books, track your reading, and build a library that&rsquo;s uniquely yours.</p>
+  <p style="margin:0 0 28px;font-size:15px;line-height:1.65;color:#4a4238;">Your shelves are waiting.</p>
+  <a href="${process.env.APP_URL || 'http://localhost:3000'}/app.html" style="display:inline-block;background:#1F3D2E;color:#FAF8F3;padding:12px 28px;border-radius:4px;text-decoration:none;font-size:14px;font-weight:600;">Open Bookshelf &rarr;</a>
+  `);
 }
 
 function resetEmail(username, resetUrl) {
-  return `
-    <div style="font-family:Georgia,serif;max-width:480px;margin:0 auto;color:#1a0c04">
-      <h2 style="font-weight:normal;letter-spacing:.1em">Reset your password</h2>
-      <p>Hi ${username},</p>
-      <p>Click the link below to choose a new password. This link expires in <strong>1 hour</strong>.</p>
-      <p style="margin:24px 0">
-        <a href="${resetUrl}" style="background:#2c1508;color:#f4edd6;padding:10px 22px;text-decoration:none;font-size:14px">
-          Reset password
-        </a>
-      </p>
-      <p style="font-size:12px;color:#888">If you didn't request this, you can safely ignore this email.</p>
-    </div>`;
+  return emailShell(`
+  <p style="margin:0 0 8px;font-size:20px;font-weight:700;color:#1F3D2E;">Reset your password</p>
+  <p style="margin:0 0 14px;font-size:15px;line-height:1.65;color:#4a4238;">Hi ${username},</p>
+  <p style="margin:0 0 28px;font-size:15px;line-height:1.65;color:#4a4238;">Someone requested a password reset for your account. Click the button below to choose a new password. This link expires in <strong>1 hour</strong>.</p>
+  <a href="${resetUrl}" style="display:inline-block;background:#1F3D2E;color:#FAF8F3;padding:12px 28px;border-radius:4px;text-decoration:none;font-size:14px;font-weight:600;">Reset password &rarr;</a>
+  <p style="margin:24px 0 0;font-size:13px;line-height:1.6;color:#6f6755;">Or copy this link into your browser:<br><a href="${resetUrl}" style="color:#1F3D2E;word-break:break-all;font-size:12px;">${resetUrl}</a></p>
+  <p style="margin:20px 0 0;font-size:13px;color:#9a8e78;">If you didn&rsquo;t request a password reset, you can safely ignore this email.</p>
+  `);
 }
 
 // ---------- Middleware ----------
@@ -162,13 +181,40 @@ app.use(session({
   secret: process.env.SESSION_SECRET || 'change-this-secret-before-deploying',
   resave: false,
   saveUninitialized: false,
-  cookie: { maxAge: 1000 * 60 * 60 * 24 * 30 },
+  cookie: {
+    maxAge:   1000 * 60 * 60 * 24 * 30,
+    httpOnly: true,
+    sameSite: 'lax',
+    secure:   process.env.NODE_ENV === 'production',
+  },
 }));
 
 function requireAuth(req, res, next) {
   if (!req.session.userId) return res.status(401).json({ error: 'Not logged in' });
   next();
 }
+
+// ---------- Rate limiting ----------
+const _rlStore = new Map();
+function makeRateLimit(max, windowMs) {
+  return (req, res, next) => {
+    const key = req.ip || 'anon';
+    const now = Date.now();
+    const hits = (_rlStore.get(key + max) || []).filter(t => now - t < windowMs);
+    if (hits.length >= max) {
+      return res.status(429).json({ error: 'Too many requests. Please try again later.' });
+    }
+    hits.push(now);
+    _rlStore.set(key + max, hits);
+    next();
+  };
+}
+// In test mode, only enforce login rate-limit (needed by security tests);
+// relax register/reset so tests can create many accounts without hitting limits.
+const _isTest = process.env.NODE_ENV === 'test';
+const loginLimit    = makeRateLimit(10,               15 * 60 * 1000);
+const registerLimit = makeRateLimit(_isTest ? 500 : 5, 60 * 60 * 1000);
+const resetLimit    = makeRateLimit(_isTest ? 500 : 3, 60 * 60 * 1000);
 
 // ---------- Auth routes ----------
 app.get('/api/check-username', (req, res) => {
@@ -178,7 +224,7 @@ app.get('/api/check-username', (req, res) => {
   res.json({ available: !existing });
 });
 
-app.post('/api/register', async (req, res) => {
+app.post('/api/register', registerLimit, async (req, res) => {
   const { username, email, password } = req.body;
   if (!username || !email || !password) {
     return res.status(400).json({ error: 'Username, email, and password are required.' });
@@ -213,7 +259,7 @@ app.post('/api/register', async (req, res) => {
   }
 });
 
-app.post('/api/login', async (req, res) => {
+app.post('/api/login', loginLimit, async (req, res) => {
   const { username, password } = req.body;
   const user = db.prepare('SELECT * FROM users WHERE username = ?').get(username);
   if (!user) return res.status(401).json({ error: 'Invalid username or password.' });
@@ -296,7 +342,7 @@ app.get('/api/profile', requireAuth, (req, res) => {
 });
 
 // ---------- Password reset ----------
-app.post('/api/forgot-password', async (req, res) => {
+app.post('/api/forgot-password', resetLimit, async (req, res) => {
   const email = (req.body.email || '').toLowerCase().trim();
   if (!email) return res.status(400).json({ error: 'Email required.' });
 
@@ -318,10 +364,10 @@ app.post('/api/forgot-password', async (req, res) => {
     .catch(err => console.error('[email] reset failed:', err));
 });
 
-app.post('/api/reset-password', async (req, res) => {
+app.post('/api/reset-password', resetLimit, async (req, res) => {
   const { token, password } = req.body;
-  if (!token || !password || password.length < 6) {
-    return res.status(400).json({ error: 'A valid token and password (6+ chars) are required.' });
+  if (!token || !password || password.length < 8 || !/[a-zA-Z]/.test(password) || !/[0-9]/.test(password)) {
+    return res.status(400).json({ error: 'Password must be 8+ characters and include a letter and a number.' });
   }
 
   const record = db.prepare('SELECT * FROM password_reset_tokens WHERE token = ?').get(token);
@@ -380,6 +426,8 @@ app.post('/api/lists/:listType/toggle', requireAuth, (req, res) => {
       if (r2.changes) removed.push('reading');
     }
   }
+  // Adding to any shelf clears DNF — user is re-engaging with the book
+  db.prepare('DELETE FROM dnf_books WHERE user_id = ? AND book_key = ?').run(req.session.userId, key);
 
   db.prepare(
     'INSERT INTO book_entries (user_id, list_type, book_key, title, author, cover_i) VALUES (?, ?, ?, ?, ?, ?)'
@@ -426,9 +474,10 @@ app.post('/api/reading/add', requireAuth, (req, res) => {
   if (!key || !title) return res.status(400).json({ error: 'Key and title required.' });
   const pages = Number.isInteger(total_pages) && total_pages > 0 ? total_pages : null;
   try {
-    // Adding to reading removes from want (no need to keep it in want-to-read)
+    // Adding to reading removes from want and clears any DNF entry
     db.prepare('DELETE FROM book_entries WHERE user_id = ? AND list_type = ? AND book_key = ?')
       .run(req.session.userId, 'want', key);
+    db.prepare('DELETE FROM dnf_books WHERE user_id = ? AND book_key = ?').run(req.session.userId, key);
     db.prepare(
       'INSERT OR IGNORE INTO currently_reading (user_id, book_key, title, author, cover_i, cover_isbn, total_pages) VALUES (?, ?, ?, ?, ?, ?, ?)'
     ).run(req.session.userId, key, title, author || null, cover_i || null, cover_isbn || null, pages);
@@ -454,6 +503,9 @@ app.post('/api/reading/finish', requireAuth, (req, res) => {
   const row = db.prepare('SELECT total_pages FROM currently_reading WHERE user_id = ? AND book_key = ?').get(req.session.userId, key);
   const pages = total_pages || (row ? row.total_pages : null);
   db.prepare('DELETE FROM currently_reading WHERE user_id = ? AND book_key = ?').run(req.session.userId, key);
+  // Clear any conflicting want entry and DNF entry when finishing
+  db.prepare('DELETE FROM book_entries WHERE user_id = ? AND list_type = ? AND book_key = ?').run(req.session.userId, 'want', key);
+  db.prepare('DELETE FROM dnf_books WHERE user_id = ? AND book_key = ?').run(req.session.userId, key);
   try {
     db.prepare(
       'INSERT OR IGNORE INTO book_entries (user_id, list_type, book_key, title, author, cover_i, pages) VALUES (?, ?, ?, ?, ?, ?, ?)'
@@ -508,7 +560,7 @@ app.get('/api/search', requireAuth, async (req, res) => {
     searchCache.set(ck, { data: docs, ts: Date.now() });
     res.json(docs);
   } catch {
-    res.status(500).json({ error: 'Search failed.' });
+    res.json([]);
   }
 });
 

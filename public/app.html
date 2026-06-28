@@ -6,6 +6,7 @@
 <title>Bookshelf</title>
 <link rel="stylesheet" href="/style.css">
 <link rel="manifest" href="/manifest.json">
+<script src="/utils.js"></script>
 <meta name="theme-color" content="#1F3D2E">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Bookshelf">
@@ -33,7 +34,7 @@
     <button class="tab" data-tab="want">Want to Read<span class="count" id="countWant">0</span></button>
     <button class="tab" data-tab="read">Already Read<span class="count" id="countRead">0</span></button>
     <button class="tab" data-tab="fav">Favorites<span class="count" id="countFav">0</span></button>
-    <button class="tab" data-tab="dnf">Did Not Finish<span class="count" id="countDnf">0</span></button>
+    <button class="tab" data-tab="dnf">Paused<span class="count" id="countDnf">0</span></button>
     <button class="tab" data-tab="collections">Collections</button>
   </div>
 
@@ -97,16 +98,20 @@ async function checkAuth(){
   const darkPref = localStorage.getItem('darkMode') === 'true';
   if (darkPref) document.documentElement.classList.add('dark');
   document.getElementById('userchip').innerHTML =
-    `<div class="userchip-name">Signed in as <strong>${data.username}</strong></div>
-     <div class="userchip-actions">
+    `<div class="userchip-actions">
        <button id="darkToggle" class="nav-btn nav-btn-back" style="font-size:13px;padding:7px 12px;">${darkPref ? '☀ Light' : '🌙 Dark'}</button>
-       <a href="/profile.html" class="nav-btn nav-btn-profile">My profile</a>
+       <a href="/profile.html" class="nav-btn nav-btn-profile" title="View your profile"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>${escHtml(data.username)}</a>
        <button id="logoutBtn" class="nav-btn nav-btn-signout">Sign out</button>
      </div>`;
-  document.getElementById('logoutBtn').addEventListener('click', async () => {
-    await fetch('/api/logout', { method: 'POST' });
-    window.location.href = '/index.html';
-  });
+  const logoutBtn = document.getElementById('logoutBtn');
+  if (logoutBtn) {
+    logoutBtn.addEventListener('click', async () => {
+      logoutBtn.disabled = true;
+      logoutBtn.textContent = 'Signing out…';
+      try { await fetch('/api/logout', { method: 'POST' }); } catch (_) {}
+      window.location.replace('/index.html');
+    });
+  }
   document.getElementById('darkToggle').addEventListener('click', () => {
     const isDark = document.documentElement.classList.toggle('dark');
     localStorage.setItem('darkMode', isDark);
@@ -182,13 +187,7 @@ function updateCounts(){
   document.getElementById('countDnf').textContent = n(dnfList.length);
 }
 
-function bookKey(b){ return b.key || (b.title + '::' + (b.author_name ? b.author_name[0] : '')); }
-
-function coverUrl(b){
-  if (b.cover_i) return `https://covers.openlibrary.org/b/id/${b.cover_i}-M.jpg`;
-  if (b.cover_isbn) return `https://covers.openlibrary.org/b/isbn/${b.cover_isbn}-M.jpg`;
-  return null;
-}
+// bookKey, coverUrl, escHtml, calcPace loaded from /utils.js
 
 function starsHTML(current){
   let html = '<div class="rating-row">';
@@ -208,9 +207,6 @@ function favStarsHTML(rating){
   return html;
 }
 
-function escHtml(s) {
-  return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
 
 function renderCard(b, idKey){
   const k = idKey;
@@ -285,6 +281,8 @@ function renderCard(b, idKey){
             if (gone === 'want' || gone === 'read') delete lists[gone][k];
             if (gone === 'reading') readingList = readingList.filter(r => r.key !== k);
           }
+          // Adding to any shelf clears DNF
+          dnfList = dnfList.filter(d => d.key !== k);
         } else {
           delete lists[action][k];
         }
@@ -299,8 +297,9 @@ function renderCard(b, idKey){
             body: JSON.stringify({ key: k, title, author, cover_i, cover_isbn: b.cover_isbn || null, total_pages: b.number_of_pages_median || null }),
           });
           readingList.push({ key: k, title, author, cover_i, cover_isbn: b.cover_isbn || null, current_page: 0, total_pages: b.number_of_pages_median || null });
-          // Adding to reading clears want
+          // Adding to reading clears want and DNF
           delete lists.want[k];
+          dnfList = dnfList.filter(d => d.key !== k);
         }
       } else if (action === 'remove') {
         const savedBook = { ...lists[activeTab][k] };
@@ -857,6 +856,7 @@ function showBookModal({ title, author, cover_i, cover_isbn, blurb, series, mood
             if (gone === 'read') delete lists.read[k];
             if (gone === 'reading') readingList = readingList.filter(e => e.key !== k);
           }
+          dnfList = dnfList.filter(d => d.key !== k);
         } else { delete lists.want[k]; }
         updateCounts(); renderButtons();
       }
@@ -876,6 +876,7 @@ function showBookModal({ title, author, cover_i, cover_isbn, blurb, series, mood
           });
           readingList.push({ key:k, title:bT, author:bA, cover_i:bC, cover_isbn:bI, current_page:0, total_pages:bP });
           delete lists.want[k]; // reading clears want
+          dnfList = dnfList.filter(d => d.key !== k);
         }
         updateCounts(); renderButtons();
       }
@@ -896,6 +897,7 @@ function showBookModal({ title, author, cover_i, cover_isbn, blurb, series, mood
             if (gone === 'want') delete lists.want[k];
             if (gone === 'reading') readingList = readingList.filter(e => e.key !== k);
           }
+          dnfList = dnfList.filter(d => d.key !== k);
         } else { delete lists.read[k]; }
         updateCounts(); renderButtons();
       }
@@ -910,8 +912,10 @@ function showBookModal({ title, author, cover_i, cover_isbn, blurb, series, mood
           body: JSON.stringify({ key:k, title:bT, author:bA, cover_i:bC })
         });
         const r = await res.json();
-        if (r.active) lists.fav[k] = { title:bT, author:bA, cover_i:bC, key:k };
-        else delete lists.fav[k];
+        if (r.active) {
+          lists.fav[k] = { title:bT, author:bA, cover_i:bC, key:k };
+          dnfList = dnfList.filter(d => d.key !== k);
+        } else { delete lists.fav[k]; }
         updateCounts(); renderButtons();
       }
     );
@@ -1119,8 +1123,7 @@ function renderReading(){
     empty.className = 'reading-empty';
     empty.innerHTML = `You're not reading anything right now.<br><span class="reading-add-hint">Search for a book and click "+ Reading" to start tracking.</span>`;
     content.appendChild(empty);
-    return;
-  }
+  } else {
 
   const grid = document.createElement('div');
   grid.className = 'reading-grid';
@@ -1188,7 +1191,7 @@ function renderReading(){
         <div class="reading-pace" id="pace-${escHtml(book.key||book.book_key||'')}"></div>
         <div class="reading-actions">
           <button class="reading-finish-btn">✓ Finished</button>
-          <button class="reading-dnf-btn reading-remove-btn">DNF</button>
+          <button class="reading-dnf-btn reading-remove-btn">Pause</button>
           <button class="reading-remove-btn">Remove</button>
         </div>
       </div>
@@ -1216,6 +1219,24 @@ function renderReading(){
       progPct.textContent  = tpVal > 0 ? `${pct}%` : '';
       barFill.style.width  = `${pct}%`;
       pageInput.max = tpVal || 99999;
+      // Recalculate and update the live pace display
+      if (paceEl) {
+        if (cpVal > 0 && book.started_at) {
+          const msElapsed = Date.now() - new Date(book.started_at);
+          const daysElapsed = Math.max(0.5, msElapsed / 86400000);
+          const ppd = +(cpVal / daysElapsed).toFixed(1);
+          if (ppd >= 0.1 && tpVal > cpVal) {
+            const daysLeft = Math.ceil((tpVal - cpVal) / ppd);
+            paceEl.textContent = `${ppd} pages/day · ~${daysLeft} day${daysLeft !== 1 ? 's' : ''} to finish`;
+          } else if (ppd >= 0.1) {
+            paceEl.textContent = `${ppd} pages/day`;
+          } else {
+            paceEl.textContent = '';
+          }
+        } else {
+          paceEl.textContent = '';
+        }
+      }
     }
 
     // Step buttons — immediate save
@@ -1276,6 +1297,51 @@ function renderReading(){
     grid.appendChild(card);
   }
   content.appendChild(grid);
+  } // end else (readingList.length > 0)
+
+  // Paused section — show inside Reading tab
+  if (dnfList.length > 0) {
+    const pausedSecTitle = document.createElement('h2');
+    pausedSecTitle.className = 'reading-section-title';
+    pausedSecTitle.textContent = 'Paused';
+    pausedSecTitle.style.cssText = 'margin-top:32px;';
+    content.appendChild(pausedSecTitle);
+    const pausedGrid = document.createElement('div');
+    pausedGrid.className = 'grid';
+    for (const b of dnfList) {
+      const bCoverUrl = b.cover_i
+        ? `https://covers.openlibrary.org/b/id/${b.cover_i}-M.jpg`
+        : b.cover_isbn
+        ? `https://covers.openlibrary.org/b/isbn/${b.cover_isbn}-M.jpg`
+        : null;
+      const bCard = document.createElement('div');
+      bCard.className = 'card';
+      bCard.innerHTML = `
+        <div class="cover">${bCoverUrl ? `<img src="${escHtml(bCoverUrl)}" alt="${escHtml(b.title)}">` : `<span class="cover-fallback">${escHtml((b.title||'?')[0])}</span>`}</div>
+        <div class="info">
+          <div class="title">${escHtml(b.title)}</div>
+          <div class="author">${escHtml(b.author || 'Unknown author')}</div>
+          <div class="actions">
+            <button class="pill paused-resume">+ Resume</button>
+            <button class="pill remove paused-del">Remove</button>
+          </div>
+        </div>`;
+      bCard.querySelector('.paused-resume').addEventListener('click', async () => {
+        await fetch('/api/reading/add', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key: b.key, title: b.title, author: b.author, cover_i: b.cover_i, cover_isbn: b.cover_isbn }) });
+        await fetch(`/api/dnf/${encodeURIComponent(b.key)}`, { method: 'DELETE' });
+        dnfList = dnfList.filter(d => d.key !== b.key);
+        readingList.push({ key: b.key, title: b.title, author: b.author, cover_i: b.cover_i, cover_isbn: b.cover_isbn, current_page: 0, total_pages: null, started_at: new Date().toISOString() });
+        updateCounts(); renderReading();
+      });
+      bCard.querySelector('.paused-del').addEventListener('click', async () => {
+        await fetch(`/api/dnf/${encodeURIComponent(b.key)}`, { method: 'DELETE' });
+        dnfList = dnfList.filter(d => d.key !== b.key);
+        updateCounts(); renderReading();
+      });
+      pausedGrid.appendChild(bCard);
+    }
+    content.appendChild(pausedGrid);
+  }
 }
 
 function renderActiveTab(){
@@ -1333,8 +1399,8 @@ function renderActiveTab(){
       filterWrap.style.cssText = 'margin-bottom:12px;';
       filterInput = document.createElement('input');
       filterInput.type = 'text';
+      filterInput.className = 'read-filter-input';
       filterInput.placeholder = 'Filter by title, author, or review…';
-      filterInput.style.cssText = 'width:100%;padding:8px 14px;font-family:Georgia,serif;font-size:14px;border:1.3px solid #d0c9b2;border-radius:20px;background:none;outline:none;color:var(--ink);';
       filterWrap.appendChild(filterInput);
       content.appendChild(filterWrap);
     }
@@ -1371,7 +1437,7 @@ function renderDnf() {
   const content = document.getElementById('content');
   content.innerHTML = '';
   if (!dnfList.length) {
-    content.innerHTML = '<div class="empty">No books marked as Did Not Finish yet.</div>';
+    content.innerHTML = '<div class="empty">No paused books yet. Use the "Pause" button on a reading card to pause a book.</div>';
     return;
   }
   const grid = document.createElement('div');
@@ -1480,9 +1546,88 @@ function renderCollections() {
         booksEl.style.display = 'block';
         booksEl.innerHTML = '<em style="font-size:13px;color:#857c68;">Loading…</em>';
         const br = await fetch(`/api/collections/${col.id}/books`);
-        const books = br.ok ? await br.json() : [];
-        if (!books.length) { booksEl.innerHTML = '<em style="font-size:13px;color:#857c68;">No books yet.</em>'; return; }
-        booksEl.innerHTML = books.map(b => `<div style="font-family:Georgia,serif;font-size:14px;color:var(--forest);padding:4px 0;border-bottom:1px solid #ece5d2;">${escHtml(b.title)}${b.author ? ` <span style="color:#9a8e78;font-style:italic;">— ${escHtml(b.author)}</span>` : ''}</div>`).join('');
+        if (booksEl.style.display === 'none') return;
+        let colBooks = br.ok ? await br.json() : [];
+
+        function renderColBooks() {
+          booksEl.innerHTML = '';
+          // Book list with remove buttons
+          if (colBooks.length) {
+            const bookList = document.createElement('div');
+            bookList.style.cssText = 'display:flex;flex-direction:column;gap:2px;margin-bottom:10px;';
+            colBooks.forEach(b => {
+              const brow = document.createElement('div');
+              brow.style.cssText = 'font-family:Georgia,serif;font-size:13.5px;color:var(--forest);padding:5px 0;border-bottom:1px solid #ece5d2;display:flex;justify-content:space-between;align-items:center;gap:8px;';
+              const label = document.createElement('span');
+              label.innerHTML = escHtml(b.title) + (b.author ? ` <span style="color:#9a8e78;font-style:italic;">— ${escHtml(b.author)}</span>` : '');
+              const removeBtn = document.createElement('button');
+              removeBtn.textContent = '✕';
+              removeBtn.title = 'Remove from collection';
+              removeBtn.style.cssText = 'background:none;border:none;color:#aaa;cursor:pointer;font-size:12px;padding:2px 5px;flex-shrink:0;line-height:1;';
+              removeBtn.addEventListener('click', async () => {
+                removeBtn.disabled = true;
+                await fetch(`/api/collections/${col.id}/books/${encodeURIComponent(b.key)}`, { method: 'DELETE' });
+                colBooks = colBooks.filter(cb => cb.key !== b.key);
+                renderColBooks();
+              });
+              brow.appendChild(label);
+              brow.appendChild(removeBtn);
+              bookList.appendChild(brow);
+            });
+            booksEl.appendChild(bookList);
+          } else {
+            const empty = document.createElement('em');
+            empty.style.cssText = 'font-size:13px;color:#857c68;display:block;margin-bottom:10px;';
+            empty.textContent = 'No books in this collection yet.';
+            booksEl.appendChild(empty);
+          }
+          // Add from shelf section
+          const addSect = document.createElement('div');
+          addSect.style.cssText = 'border-top:1px solid #ece5d2;padding-top:10px;';
+          const addInput = document.createElement('input');
+          addInput.type = 'text';
+          addInput.className = 'col-add-input';
+          addInput.placeholder = 'Add from your shelf…';
+          const addResults = document.createElement('div');
+          addResults.style.cssText = 'display:flex;flex-direction:column;gap:3px;max-height:160px;overflow-y:auto;';
+          addInput.addEventListener('input', () => {
+            const q = addInput.value.trim().toLowerCase();
+            addResults.innerHTML = '';
+            if (!q) return;
+            const colKeys = new Set(colBooks.map(b => b.key));
+            const seen = new Set();
+            const candidates = [
+              ...Object.entries(lists.want),
+              ...Object.entries(lists.read),
+              ...Object.entries(lists.fav),
+            ].filter(([k, b]) => {
+              if (colKeys.has(k) || seen.has(k)) return false;
+              seen.add(k);
+              return ((b.title||'').toLowerCase().includes(q) || (b.author||'').toLowerCase().includes(q));
+            });
+            candidates.slice(0, 10).forEach(([k, b]) => {
+              const item = document.createElement('div');
+              item.style.cssText = 'padding:5px 8px;cursor:pointer;border-radius:4px;font-family:Georgia,serif;font-size:13px;color:var(--forest);background:rgba(242,236,221,0.4);';
+              item.textContent = b.title + (b.author ? ` — ${b.author}` : '');
+              item.addEventListener('mouseenter', () => { item.style.background = 'rgba(31,61,46,0.08)'; });
+              item.addEventListener('mouseleave', () => { item.style.background = 'rgba(242,236,221,0.4)'; });
+              item.addEventListener('click', async () => {
+                await fetch(`/api/collections/${col.id}/books`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ key: k, title: b.title, author: b.author, cover_i: b.cover_i }),
+                });
+                colBooks.push({ key: k, title: b.title, author: b.author, cover_i: b.cover_i });
+                renderColBooks();
+              });
+              addResults.appendChild(item);
+            });
+          });
+          addSect.appendChild(addInput);
+          addSect.appendChild(addResults);
+          booksEl.appendChild(addSect);
+        }
+        renderColBooks();
       });
       listEl.appendChild(row);
     }
@@ -1616,17 +1761,23 @@ async function openScanner() {
     await videoEl.play();
 
     if (!('BarcodeDetector' in window)) {
-      statusEl.textContent = 'Barcode scanning not supported in this browser.';
-      cancelBtn.textContent = 'Enter ISBN manually';
-      cancelBtn.addEventListener('click', () => {
-        cleanup();
-        const isbn = prompt('Enter ISBN:');
-        if (isbn?.trim()) { document.getElementById('searchInput').value = isbn.trim(); doSearch(); }
-      }, { once: true });
+      // Camera works but barcode API unavailable (Firefox, Safari) — stop stream and ask for ISBN
+      cleanup();
+      const isbn = prompt('Barcode scanning is not supported in this browser. Enter an ISBN to search:');
+      if (isbn?.trim()) { document.getElementById('searchInput').value = isbn.trim(); doSearch(); }
       return;
     }
 
-    const detector = new BarcodeDetector({ formats: ['ean_13', 'ean_8', 'code_128'] });
+    let detector;
+    try {
+      detector = new BarcodeDetector({ formats: ['ean_13', 'ean_8', 'code_128'] });
+    } catch {
+      cleanup();
+      const isbn = prompt('Barcode detector failed to initialise. Enter an ISBN to search:');
+      if (isbn?.trim()) { document.getElementById('searchInput').value = isbn.trim(); doSearch(); }
+      return;
+    }
+
     statusEl.textContent = 'Scanning…';
 
     interval = setInterval(async () => {
@@ -1645,9 +1796,10 @@ async function openScanner() {
       } catch (_) {}
     }, 400);
 
-  } catch {
+  } catch (err) {
     cleanup();
-    const isbn = prompt('Camera access denied. Enter ISBN manually:');
+    const msg = err?.name === 'NotAllowedError' ? 'Camera access was denied.' : 'Could not start camera.';
+    const isbn = prompt(`${msg} Enter an ISBN to search instead:`);
     if (isbn?.trim()) { document.getElementById('searchInput').value = isbn.trim(); doSearch(); }
   }
 }
