@@ -1072,13 +1072,16 @@ function renderReading(){
 
     let paceHtml = '';
     if (cp > 0 && book.started_at) {
-      const daysElapsed = Math.max(1, Math.round((Date.now() - new Date(book.started_at)) / 86400000));
+      const msElapsed = Date.now() - new Date(book.started_at);
+      const daysElapsed = Math.max(0.5, msElapsed / 86400000);
       const ppd = +(cp / daysElapsed).toFixed(1);
-      if (tp > cp && ppd > 0) {
-        const daysLeft = Math.ceil((tp - cp) / ppd);
-        paceHtml = `${ppd} pages/day · ~${daysLeft} day${daysLeft !== 1 ? 's' : ''} to finish`;
-      } else if (ppd > 0) {
-        paceHtml = `${ppd} pages/day`;
+      if (ppd >= 0.1) {
+        if (tp > cp) {
+          const daysLeft = Math.ceil((tp - cp) / ppd);
+          paceHtml = `${ppd} pages/day · ~${daysLeft} day${daysLeft !== 1 ? 's' : ''} to finish`;
+        } else {
+          paceHtml = `${ppd} pages/day`;
+        }
       }
     }
 
