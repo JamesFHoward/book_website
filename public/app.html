@@ -34,7 +34,6 @@
     <button class="tab" data-tab="want">Want to Read<span class="count" id="countWant">0</span></button>
     <button class="tab" data-tab="read">Already Read<span class="count" id="countRead">0</span></button>
     <button class="tab" data-tab="fav">Favorites<span class="count" id="countFav">0</span></button>
-    <button class="tab" data-tab="dnf">Paused<span class="count" id="countDnf">0</span></button>
     <button class="tab" data-tab="collections">Collections</button>
   </div>
 
@@ -780,6 +779,12 @@ function showBookModal({ title, author, cover_i, cover_isbn, blurb, series, mood
       <div class="rec-modal-actions" id="modalActions">
         <span style="font-size:13px;color:#857c68;font-style:italic;">Loading…</span>
       </div>
+      <div class="rec-modal-similar" id="modalSimilar" style="display:none">
+        <div class="rec-modal-similar-title">You might also like</div>
+        <div class="rec-modal-similar-row" id="modalSimilarRow">
+          <span style="font-style:italic;color:#9a8e78;font-size:13px;font-family:Georgia,serif;">Finding similar books…</span>
+        </div>
+      </div>
     </div>
   `;
 
@@ -966,6 +971,42 @@ function showBookModal({ title, author, cover_i, cover_isbn, blurb, series, mood
         } else { descBtn.textContent = 'No description available'; }
       } catch { descBtn.textContent = 'No description available'; }
     });
+  }
+
+  // Feature 10: Similar books
+  const similarSubject = genre
+    || (olBook && Array.isArray(olBook.subject) && olBook.subject[0])
+    || author
+    || null;
+  if (similarSubject) {
+    const similarEl    = overlay.querySelector('#modalSimilar');
+    const similarRowEl = overlay.querySelector('#modalSimilarRow');
+    similarEl.style.display = '';
+    fetch(`/api/discover/similar?subject=${encodeURIComponent(similarSubject)}`)
+      .then(r => r.json())
+      .then(books => {
+        if (!Array.isArray(books) || !books.length) { similarEl.style.display = 'none'; return; }
+        const filtered = books
+          .filter(b => (b.title || '').toLowerCase() !== (title || '').toLowerCase())
+          .slice(0, 4);
+        if (!filtered.length) { similarEl.style.display = 'none'; return; }
+        similarRowEl.innerHTML = '';
+        for (const b of filtered) {
+          const bUrl = b.cover_i ? `https://covers.openlibrary.org/b/id/${b.cover_i}-M.jpg` : null;
+          const card = document.createElement('div');
+          card.className = 'rec-modal-similar-card';
+          card.innerHTML = `
+            <div class="rec-modal-similar-cover">
+              ${bUrl ? `<img src="${bUrl}" alt="${escHtml(b.title)}" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">` : ''}
+              <span class="rec-modal-similar-initial" ${bUrl ? 'style="display:none"' : ''}>${escHtml((b.title || '?')[0])}</span>
+            </div>
+            <div class="rec-modal-similar-card-title">${escHtml(b.title)}</div>
+          `;
+          card.addEventListener('click', () => { closeModal(); showSearchModal(b); });
+          similarRowEl.appendChild(card);
+        }
+      })
+      .catch(() => { similarEl.style.display = 'none'; });
   }
 
   if (olBook) {
@@ -1347,7 +1388,6 @@ function renderReading(){
 function renderActiveTab(){
   if (activeTab === 'recs') { renderRecommendations(); return; }
   if (activeTab === 'reading') { renderReading(); return; }
-  if (activeTab === 'dnf') { renderDnf(); return; }
   if (activeTab === 'collections') { renderCollections(); return; }
 
   const content = document.getElementById('content');

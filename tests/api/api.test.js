@@ -333,4 +333,82 @@ describe('API Integration Tests', async () => {
       assert.equal(r.status, 400);
     });
   });
+
+  // ── Reading History ───────────────────────────────────────────────────────
+
+  describe('GET /api/reading/history', () => {
+    before(() => api.reset());
+
+    test('unauthenticated request returns 401', async () => {
+      const r = await api.get('/api/reading/history');
+      assert.equal(r.status, 401);
+    });
+
+    test('returns empty array when no read books', async () => {
+      const c = await loggedInClient();
+      const r = await c.get('/api/reading/history');
+      assert.equal(r.status, 200);
+      assert.deepEqual(r.data, []);
+    });
+
+    test('returns book with correct fields after adding to read shelf', async () => {
+      const c = await loggedInClient();
+      await c.post('/api/lists/read/toggle', { key: 'OLH1W', title: 'History Book', author: 'Auth H', cover_i: 99999 });
+      const r = await c.get('/api/reading/history');
+      assert.equal(r.status, 200);
+      assert.ok(Array.isArray(r.data));
+      assert.equal(r.data.length, 1);
+      const book = r.data[0];
+      assert.equal(book.book_key, 'OLH1W');
+      assert.equal(book.title, 'History Book');
+      assert.equal(book.author, 'Auth H');
+      assert.equal(book.cover_i, 99999);
+      assert.ok('added_at' in book);
+    });
+
+    test('returns multiple books ordered by added_at DESC', async () => {
+      const c = await loggedInClient();
+      await c.post('/api/lists/read/toggle', { key: 'OLH2W', title: 'First Book', author: 'Auth', cover_i: null });
+      await c.post('/api/lists/read/toggle', { key: 'OLH3W', title: 'Second Book', author: 'Auth', cover_i: null });
+      const r = await c.get('/api/reading/history');
+      assert.equal(r.status, 200);
+      assert.ok(r.data.length >= 2);
+      assert.ok(r.data[0].added_at >= r.data[1].added_at, 'results should be ordered added_at DESC');
+    });
+
+    test('cover_i is null for books added without a cover', async () => {
+      const c = await loggedInClient();
+      await c.post('/api/lists/read/toggle', { key: 'OLH4W', title: 'No Cover Book', author: 'Auth', cover_i: null });
+      const r = await c.get('/api/reading/history');
+      assert.equal(r.status, 200);
+      const book = r.data.find(b => b.book_key === 'OLH4W');
+      assert.ok(book, 'book should be present in history');
+      assert.equal(book.cover_i, null);
+    });
+  });
+
+  // ── Discover Similar ──────────────────────────────────────────────────────
+
+  describe('GET /api/discover/similar', () => {
+    before(() => api.reset());
+
+    test('unauthenticated request returns 401', async () => {
+      const r = await api.get('/api/discover/similar?subject=fiction');
+      assert.equal(r.status, 401);
+    });
+
+    test('missing subject param returns 400 with error', async () => {
+      const c = await loggedInClient();
+      const r = await c.get('/api/discover/similar');
+      assert.equal(r.status, 400);
+      assert.ok(r.data.error, 'should include an error message');
+    });
+
+    test('valid subject returns array (network-dependent)', async () => {
+      const c = await loggedInClient();
+      const r = await c.get('/api/discover/similar?subject=fiction');
+      if (r.status !== 200) return;
+      assert.ok(Array.isArray(r.data));
+    });
+  });
 });

@@ -520,6 +520,15 @@ app.delete('/api/reading/:key', requireAuth, (req, res) => {
   res.json({ ok: true });
 });
 
+app.get('/api/reading/history', requireAuth, (req, res) => {
+  const rows = db.prepare(
+    `SELECT book_key, title, author, cover_i, added_at FROM book_entries
+     WHERE user_id = ? AND list_type = 'read'
+     ORDER BY added_at DESC`
+  ).all(req.session.userId);
+  res.json(rows);
+});
+
 // ---------- Reading Goals ----------
 app.get('/api/goals/:year', requireAuth, (req, res) => {
   const year = parseInt(req.params.year, 10);
