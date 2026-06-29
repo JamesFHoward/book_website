@@ -858,3 +858,28 @@ app.delete('/api/collections/:id/books/:key', requireAuth, (req, res) => {
 });
 
 app.listen(PORT, () => console.log(`Bookshelf running at http://localhost:${PORT}`));
+
+// ---------- Cache pre-warming ----------
+// Stagger fetches across 60s so we don't spike Open Library on startup.
+const WARM_SUBJECTS = [
+  'fiction', 'mystery', 'romance', 'fantasy', 'science fiction',
+  'thriller', 'biography', 'history', 'horror', 'literary fiction',
+  'historical fiction', 'self help', 'true crime', 'adventure', 'classics',
+];
+const EXCLUDE_SUBJECTS = ['manga','comic','comics','graphic novel','graphic novels','manhwa','manhua','light novel','anime'];
+WARM_SUBJECTS.forEach((subject, i) => {
+  setTimeout(async () => {
+    const ck = 'similar:' + subject;
+    if (genreBookCache.has(ck)) return;
+    try {
+      const r    = await fetch(`https://openlibrary.org/search.json?subject=${encodeURIComponent(subject)}&limit=30&fields=${OL_FIELDS}&sort=rating`);
+      const json = await r.json();
+      const books = (json.docs || []).filter(b => {
+        if (!b.cover_i) return false;
+        const subs = (b.subject || []).map(s => s.toLowerCase());
+        return !EXCLUDE_SUBJECTS.some(ex => subs.some(s => s.includes(ex)));
+      });
+      genreBookCache.set(ck, { data: books, ts: Date.now() });
+    } catch { /* non-critical — live fetch will handle it */ }
+  }, (i + 1) * 4000); // one request every 4 seconds
+});

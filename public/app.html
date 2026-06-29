@@ -973,7 +973,8 @@ function showBookModal({ title, author, cover_i, cover_isbn, blurb, series, mood
     });
   }
 
-  // Feature 10: Similar books
+  // Feature 10: Similar books — lazy-loaded via IntersectionObserver so the
+  // modal renders instantly and the Open Library fetch only fires once visible.
   const similarSubject = genre
     || (olBook && Array.isArray(olBook.subject) && olBook.subject[0])
     || author
@@ -981,32 +982,47 @@ function showBookModal({ title, author, cover_i, cover_isbn, blurb, series, mood
   if (similarSubject) {
     const similarEl    = overlay.querySelector('#modalSimilar');
     const similarRowEl = overlay.querySelector('#modalSimilarRow');
-    similarEl.style.display = '';
-    fetch(`/api/discover/similar?subject=${encodeURIComponent(similarSubject)}`)
-      .then(r => r.json())
-      .then(books => {
-        if (!Array.isArray(books) || !books.length) { similarEl.style.display = 'none'; return; }
-        const filtered = books
-          .filter(b => (b.title || '').toLowerCase() !== (title || '').toLowerCase())
-          .slice(0, 4);
-        if (!filtered.length) { similarEl.style.display = 'none'; return; }
-        similarRowEl.innerHTML = '';
-        for (const b of filtered) {
-          const bUrl = b.cover_i ? `https://covers.openlibrary.org/b/id/${b.cover_i}-M.jpg` : null;
-          const card = document.createElement('div');
-          card.className = 'rec-modal-similar-card';
-          card.innerHTML = `
-            <div class="rec-modal-similar-cover">
-              ${bUrl ? `<img src="${bUrl}" alt="${escHtml(b.title)}" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">` : ''}
-              <span class="rec-modal-similar-initial" ${bUrl ? 'style="display:none"' : ''}>${escHtml((b.title || '?')[0])}</span>
-            </div>
-            <div class="rec-modal-similar-card-title">${escHtml(b.title)}</div>
-          `;
-          card.addEventListener('click', () => { closeModal(); showSearchModal(b); });
-          similarRowEl.appendChild(card);
-        }
-      })
-      .catch(() => { similarEl.style.display = 'none'; });
+    let similarFetched = false;
+
+    const loadSimilar = () => {
+      if (similarFetched) return;
+      similarFetched = true;
+      similarEl.style.display = '';
+      fetch(`/api/discover/similar?subject=${encodeURIComponent(similarSubject)}`)
+        .then(r => r.json())
+        .then(books => {
+          if (!Array.isArray(books) || !books.length) { similarEl.style.display = 'none'; return; }
+          const filtered = books
+            .filter(b => (b.title || '').toLowerCase() !== (title || '').toLowerCase())
+            .slice(0, 4);
+          if (!filtered.length) { similarEl.style.display = 'none'; return; }
+          similarRowEl.innerHTML = '';
+          for (const b of filtered) {
+            const bUrl = b.cover_i ? `https://covers.openlibrary.org/b/id/${b.cover_i}-M.jpg` : null;
+            const card = document.createElement('div');
+            card.className = 'rec-modal-similar-card';
+            card.innerHTML = `
+              <div class="rec-modal-similar-cover">
+                ${bUrl ? `<img src="${bUrl}" alt="${escHtml(b.title)}" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">` : ''}
+                <span class="rec-modal-similar-initial" ${bUrl ? 'style="display:none"' : ''}>${escHtml((b.title || '?')[0])}</span>
+              </div>
+              <div class="rec-modal-similar-card-title">${escHtml(b.title)}</div>
+            `;
+            card.addEventListener('click', () => { closeModal(); showSearchModal(b); });
+            similarRowEl.appendChild(card);
+          }
+        })
+        .catch(() => { similarEl.style.display = 'none'; });
+    };
+
+    if ('IntersectionObserver' in window) {
+      const io = new IntersectionObserver(([entry]) => {
+        if (entry.isIntersecting) { io.disconnect(); loadSimilar(); }
+      }, { threshold: 0.1 });
+      io.observe(similarEl);
+    } else {
+      loadSimilar();
+    }
   }
 
   if (olBook) {
