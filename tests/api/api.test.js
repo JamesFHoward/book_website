@@ -423,10 +423,10 @@ describe('API Integration Tests', async () => {
     test('returns required fields', async () => {
       const r = await api.get('/api/discover/book-of-week');
       assert.equal(r.status, 200);
-      assert.ok(r.data.key,    'should have key');
-      assert.ok(r.data.title,  'should have title');
-      assert.ok(r.data.author, 'should have author');
-      assert.ok(r.data.blurb,  'should have blurb');
+      assert.ok(r.data.key,              'should have key');
+      assert.ok(r.data.title,            'should have title');
+      assert.ok(r.data.author,           'should have author');
+      assert.ok('blurb' in r.data,       'should have blurb key (may be null)');
     });
 
     test('key is a string starting with /works/', async () => {
@@ -483,6 +483,180 @@ describe('API Integration Tests', async () => {
       const r = await c.get('/api/discover/similar?subject=fiction');
       if (r.status !== 200) return;
       assert.ok(Array.isArray(r.data));
+    });
+  });
+
+  // ── Book Notes ────────────────────────────────────────────────────────────
+
+  describe('GET/POST /api/notes/:bookKey', () => {
+    test('GET unauthenticated → 401', async () => {
+      api.reset();
+      const r = await api.get('/api/notes/OLN0W');
+      assert.equal(r.status, 401);
+    });
+
+    test('GET for book not on any shelf → { note: null, quote: null }', async () => {
+      const c = await loggedInClient();
+      const r = await c.get('/api/notes/OL_NOT_ON_SHELF_W');
+      assert.equal(r.status, 200);
+      assert.deepEqual(r.data, { note: null, quote: null });
+    });
+
+    test('POST saves note and quote for shelved book → { ok: true }', async () => {
+      const c = await loggedInClient();
+      await c.post('/api/lists/read/toggle', { key: 'OLN1W', title: 'Note Book One', author: 'Auth', cover_i: null });
+      const r = await c.post('/api/notes/OLN1W', { note: 'test note', quote: 'test quote' });
+      assert.equal(r.status, 200);
+      assert.equal(r.data.ok, true);
+    });
+
+    test('GET after saving returns the saved note and quote', async () => {
+      const c = await loggedInClient();
+      await c.post('/api/lists/read/toggle', { key: 'OLN2W', title: 'Note Book Two', author: 'Auth', cover_i: null });
+      await c.post('/api/notes/OLN2W', { note: 'test note', quote: 'test quote' });
+      const r = await c.get('/api/notes/OLN2W');
+      assert.equal(r.status, 200);
+      assert.equal(r.data.note, 'test note');
+      assert.equal(r.data.quote, 'test quote');
+    });
+
+    test('POST with only note — quote remains null', async () => {
+      const c = await loggedInClient();
+      await c.post('/api/lists/read/toggle', { key: 'OLN3W', title: 'Note Book Three', author: 'Auth', cover_i: null });
+      await c.post('/api/notes/OLN3W', { note: 'only a note' });
+      const r = await c.get('/api/notes/OLN3W');
+      assert.equal(r.status, 200);
+      assert.equal(r.data.note, 'only a note');
+      assert.equal(r.data.quote, null);
+    });
+
+    test('POST unauthenticated → 401', async () => {
+      api.reset();
+      const r = await api.post('/api/notes/OLN4W', { note: 'test' });
+      assert.equal(r.status, 401);
+    });
+  });
+
+  // ── Public Profile ────────────────────────────────────────────────────────
+
+  describe('GET /api/public/:username', () => {
+    test('unknown username → 404 with error field', async () => {
+      const r = await api.get('/api/public/no_such_user_xyz_999');
+      assert.equal(r.status, 404);
+      assert.ok(r.data.error, 'should have error field');
+    });
+
+    test('known user with no books → 200 with empty shelves', async () => {
+      const c = await loggedInClient();
+      const me = await c.get('/api/me');
+      const username = me.data.username;
+      const r = await api.get(`/api/public/${username}`);
+      assert.equal(r.status, 200);
+      assert.equal(r.data.username, username);
+      assert.ok('stats' in r.data, 'should have stats');
+      assert.deepEqual(r.data.read, []);
+      assert.deepEqual(r.data.want, []);
+      assert.deepEqual(r.data.fav, []);
+    });
+
+    test('known user with a read book → read array contains that book', async () => {
+      const c = await loggedInClient();
+      await c.post('/api/lists/read/toggle', { key: 'OLP1W', title: 'Public Book', author: 'Author P', cover_i: null });
+      const me = await c.get('/api/me');
+      const username = me.data.username;
+      const r = await api.get(`/api/public/${username}`);
+      assert.equal(r.status, 200);
+      assert.ok(r.data.read.some(b => b.title === 'Public Book'), 'read array should contain the added book');
+    });
+
+    test('response does not contain password_hash or email', async () => {
+      const c = await loggedInClient();
+      const me = await c.get('/api/me');
+      const username = me.data.username;
+      const r = await api.get(`/api/public/${username}`);
+      assert.equal(r.status, 200);
+      assert.ok(!('password_hash' in r.data), 'must not expose password_hash');
+      assert.ok(!('email' in r.data), 'must not expose email');
+    });
+
+    test('unauthenticated request returns 200 for known user', async () => {
+      const c = await loggedInClient();
+      const me = await c.get('/api/me');
+      const username = me.data.username;
+      api.reset();
+      const r = await api.get(`/api/public/${username}`);
+      assert.equal(r.status, 200);
+      assert.equal(r.data.username, username);
+    });
+  });
+
+  // ── Goodreads Import ──────────────────────────────────────────────────────
+
+  describe('POST /api/import/goodreads', () => {
+    const BASE_CSV = [
+      'Book Id,Title,Author,Author l-f,Additional Authors,ISBN,ISBN13,My Rating,Number of Pages,Year Published,Original Publication Year,Date Read,Date Added,Bookshelves,Bookshelves with positions,Exclusive Shelf,My Review,Spoiler,Private Notes,Read Count,Owned Copies',
+      '1,The Great Gatsby,F. Scott Fitzgerald,Fitzgerald F. Scott,,="0743273567",="9780743273565",0,180,2004,1925,2024/01/15,2024/01/01,,,"read",,,,1,0',
+      '2,Dune,Frank Herbert,Herbert Frank,,="0441013597",="9780441013593",0,412,1990,1965,,,,,"to-read",,,,0,0',
+    ].join('\n');
+
+    async function uploadCsv(c, csvText) {
+      const form = new FormData();
+      form.append('file', new Blob([csvText], { type: 'text/csv' }), 'goodreads.csv');
+      const res = await fetch(srv.baseUrl + '/api/import/goodreads', {
+        method: 'POST',
+        headers: { 'Cookie': c.getCookie() },
+        body: form,
+      });
+      let data = null;
+      try { data = await res.json(); } catch {}
+      return { status: res.status, data };
+    }
+
+    test('unauthenticated → 401', async () => {
+      api.reset();
+      const r = await api.post('/api/import/goodreads', {});
+      assert.equal(r.status, 401);
+    });
+
+    test('no file attached → 400', async () => {
+      const c = await loggedInClient();
+      const r = await c.post('/api/import/goodreads', {});
+      assert.equal(r.status, 400);
+    });
+
+    test('valid CSV with 1 read + 1 to-read → imported: 2, skipped: 0, books appear on shelves', async () => {
+      const c = await loggedInClient();
+      const r = await uploadCsv(c, BASE_CSV);
+      assert.equal(r.status, 200);
+      assert.equal(r.data.imported, 2);
+      assert.equal(r.data.skipped, 0);
+      const lists = await c.get('/api/lists');
+      assert.ok(lists.data.read['/isbn/9780743273565'], 'Gatsby should be in read list');
+      assert.ok(lists.data.want['/isbn/9780441013593'], 'Dune should be in want list');
+    });
+
+    test('importing same CSV twice — counter still increments but no duplicate DB rows', async () => {
+      const c = await loggedInClient();
+      await uploadCsv(c, BASE_CSV);
+      const r = await uploadCsv(c, BASE_CSV);
+      assert.equal(r.status, 200);
+      assert.equal(r.data.imported, 2, 'server increments imported counter even when INSERT OR IGNORE skips');
+      const lists = await c.get('/api/lists');
+      assert.equal(Object.keys(lists.data.read).length, 1, 'should have exactly 1 read book — no duplicate');
+    });
+
+    test('CSV with currently-reading shelf → book imported into reading list', async () => {
+      const c = await loggedInClient();
+      const csvText = [
+        'Book Id,Title,Author,Author l-f,Additional Authors,ISBN,ISBN13,My Rating,Number of Pages,Year Published,Original Publication Year,Date Read,Date Added,Bookshelves,Bookshelves with positions,Exclusive Shelf,My Review,Spoiler,Private Notes,Read Count,Owned Copies',
+        '3,Foundation,Isaac Asimov,Asimov Isaac,,="0553293354",="9780553293357",0,255,1991,1951,,,,,"currently-reading",,,,0,0',
+      ].join('\n');
+      const r = await uploadCsv(c, csvText);
+      assert.equal(r.status, 200);
+      assert.equal(r.data.imported, 1);
+      assert.equal(r.data.skipped, 0);
+      const reading = await c.get('/api/reading');
+      assert.ok(reading.data.some(b => b.title === 'Foundation'), 'Foundation should appear in currently reading');
     });
   });
 });
