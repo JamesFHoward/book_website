@@ -28,4 +28,24 @@ function calcPace(currentPage, startedAt, totalPages) {
   return out;
 }
 
-if (typeof module !== 'undefined') module.exports = { escHtml, bookKey, coverUrl, calcPace };
+function isQualitySearchResult(doc) {
+  if (!doc.cover_i) return false;
+  if (!doc.first_publish_year) return false;
+  if (!doc.author_name || doc.author_name.length === 0) return false;
+
+  const title  = (doc.title || '').trim();
+  const author = (doc.author_name[0] || '').trim();
+
+  if (title.length < 2) return false;
+  if (title.toLowerCase() === author.toLowerCase()) return false;
+
+  const authorCompact = author.toLowerCase().replace(/\s+/g, '');
+  if (authorCompact.length > 0 && new Set(authorCompact).size < 3) return false;
+
+  const titleWords = title.toLowerCase().split(/\s+/).filter(Boolean);
+  if (titleWords.length > 1 && new Set(titleWords).size === 1) return false;
+
+  return true;
+}
+
+if (typeof module !== 'undefined') module.exports = { escHtml, bookKey, coverUrl, calcPace, isQualitySearchResult };

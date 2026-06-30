@@ -8,6 +8,11 @@ const crypto   = require('crypto');
 const path     = require('path');
 const nodemailer = require('nodemailer');
 const Database = require('better-sqlite3');
+const passport = require('passport');
+const { Strategy: GoogleStrategy } = require('passport-google-oauth20');
+const { Strategy: GitHubStrategy  } = require('passport-github2');
+
+const { isQualitySearchResult } = require('./public/utils.js');
 
 const app  = express();
 const PORT = process.env.PORT || 3000;
@@ -188,6 +193,8 @@ app.use(session({
     secure:   process.env.NODE_ENV === 'production',
   },
 }));
+
+app.use(passport.initialize());
 
 function requireAuth(req, res, next) {
   if (!req.session.userId) return res.status(401).json({ error: 'Not logged in' });
@@ -382,6 +389,81 @@ app.post('/api/reset-password', resetLimit, async (req, res) => {
   res.json({ ok: true });
 });
 
+// ---------- OAuth ----------
+function upsertOAuthUser(email, preferredUsername) {
+  const normalEmail = email.toLowerCase().trim();
+  let user = db.prepare('SELECT id, username FROM users WHERE email = ?').get(normalEmail);
+  if (user) return user;
+
+  const hash = crypto.randomBytes(32).toString('hex');
+  let base = (preferredUsername || 'user').replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 25) || 'user';
+  let username = base;
+  let attempt = 0;
+  while (db.prepare('SELECT id FROM users WHERE username = ?').get(username)) {
+    attempt++;
+    username = base + attempt;
+    if (attempt > 20) { username = base + crypto.randomBytes(3).toString('hex'); break; }
+  }
+  try {
+    const r = db.prepare(
+      'INSERT INTO users (username, email, password_hash) VALUES (?, ?, ?)'
+    ).run(username, normalEmail, hash);
+    return { id: r.lastInsertRowid, username };
+  } catch (_) {
+    return db.prepare('SELECT id, username FROM users WHERE email = ?').get(normalEmail);
+  }
+}
+
+if (process.env.GOOGLE_CLIENT_ID) {
+  passport.use(new GoogleStrategy({
+    clientID:     process.env.GOOGLE_CLIENT_ID,
+    clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+    callbackURL:  (process.env.APP_URL || 'http://localhost:3000') + '/auth/google/callback',
+  }, (accessToken, refreshToken, profile, done) => {
+    try {
+      const email = profile.emails && profile.emails[0] && profile.emails[0].value;
+      if (!email) return done(null, false);
+      const pref = (profile.displayName || '').replace(/\s+/g, '').slice(0, 25) || 'googleuser';
+      done(null, upsertOAuthUser(email, pref));
+    } catch (e) { done(e); }
+  }));
+
+  app.get('/auth/google',
+    passport.authenticate('google', { scope: ['profile', 'email'], session: false }));
+  app.get('/auth/google/callback',
+    passport.authenticate('google', { failureRedirect: '/?error=oauth', session: false }),
+    (req, res) => {
+      req.session.userId   = req.user.id;
+      req.session.username = req.user.username;
+      res.redirect('/app.html');
+    });
+}
+
+if (process.env.GITHUB_CLIENT_ID) {
+  passport.use(new GitHubStrategy({
+    clientID:     process.env.GITHUB_CLIENT_ID,
+    clientSecret: process.env.GITHUB_CLIENT_SECRET,
+    callbackURL:  (process.env.APP_URL || 'http://localhost:3000') + '/auth/github/callback',
+  }, (accessToken, refreshToken, profile, done) => {
+    try {
+      const email = profile.emails && profile.emails[0] && profile.emails[0].value;
+      if (!email) return done(null, false);
+      const pref = (profile.username || profile.displayName || '').slice(0, 25) || 'githubuser';
+      done(null, upsertOAuthUser(email, pref));
+    } catch (e) { done(e); }
+  }));
+
+  app.get('/auth/github',
+    passport.authenticate('github', { scope: ['user:email'], session: false }));
+  app.get('/auth/github/callback',
+    passport.authenticate('github', { failureRedirect: '/?error=oauth', session: false }),
+    (req, res) => {
+      req.session.userId   = req.user.id;
+      req.session.username = req.user.username;
+      res.redirect('/app.html');
+    });
+}
+
 // ---------- Book list routes ----------
 app.get('/api/lists', requireAuth, (req, res) => {
   const rows = db.prepare(
@@ -565,7 +647,7 @@ app.get('/api/search', requireAuth, async (req, res) => {
       `https://openlibrary.org/search.json?q=${encodeURIComponent(q)}&limit=24&fields=${OL_FIELDS}`
     );
     const json = await upstream.json();
-    const docs = json.docs || [];
+    const docs = (json.docs || []).filter(isQualitySearchResult);
     searchCache.set(ck, { data: docs, ts: Date.now() });
     res.json(docs);
   } catch {
@@ -791,6 +873,41 @@ app.get('/api/discover/new-releases', requireAuth, async (req, res) => {
     newReleaseCache.set(ck, { data: books, ts: Date.now() });
     res.json(books);
   } catch { res.status(500).json({ error: 'Failed.' }); }
+});
+
+// ---------- Book of the Week ----------
+const BOOK_OF_WEEK_LIST = [
+  { key: '/works/OL82563W',    title: "Harry Potter and the Philosopher's Stone", author: 'J.K. Rowling',          cover_i: null, blurb: "An orphaned boy discovers he is a wizard and begins his education at Hogwarts. The book that launched a global phenomenon and reminded the world that magic is real." },
+  { key: '/works/OL27479W',    title: 'The Lord of the Rings',                    author: 'J.R.R. Tolkien',        cover_i: null, blurb: "A humble hobbit must carry the most dangerous artefact in Middle-earth across a continent of peril. Tolkien's monumental masterpiece created the template for all modern fantasy." },
+  { key: '/works/OL1168013W',  title: 'Nineteen Eighty-Four',                    author: 'George Orwell',         cover_i: null, blurb: "Winston Smith lives under the all-seeing eye of Big Brother in a totalitarian dystopia where truth itself is rewritten daily. The definitive novel of surveillance and the resilience of the human spirit." },
+  { key: '/works/OL45883W',    title: 'To Kill a Mockingbird',                   author: 'Harper Lee',            cover_i: null, blurb: "Seen through young Scout Finch's eyes, this Pulitzer Prize-winner confronts racial injustice in the American Deep South. A timeless story about empathy, courage, and moral growth." },
+  { key: '/works/OL675347W',   title: 'Pride and Prejudice',                     author: 'Jane Austen',           cover_i: null, blurb: "Elizabeth Bennet and the proud Mr Darcy navigate love, class, and social expectation in Regency England. Austen's razor-sharp wit and enduring romance make this the perfect novel." },
+  { key: '/works/OL468431W',   title: 'The Great Gatsby',                        author: 'F. Scott Fitzgerald',  cover_i: null, blurb: "Through narrator Nick Carraway's eyes, we witness the dazzling and tragic story of Jay Gatsby's obsessive pursuit of the American Dream. Brief, brilliant, and never out of print." },
+  { key: '/works/OL36014W',    title: 'Dune',                                    author: 'Frank Herbert',         cover_i: null, blurb: "On the desert planet Arrakis, young Paul Atreides must survive political treachery and harness the universe's most precious resource. The best-selling science fiction novel of all time." },
+  { key: '/works/OL7353617W',  title: "The Hitchhiker's Guide to the Galaxy",    author: 'Douglas Adams',         cover_i: null, blurb: "Moments before Earth is demolished for a hyperspace bypass, Arthur Dent is whisked into the cosmos by his alien friend. Endlessly quotable and utterly unique." },
+  { key: '/works/OL3335457W',  title: 'The Catcher in the Rye',                 author: 'J.D. Salinger',         cover_i: null, blurb: "Holden Caulfield wanders New York after being expelled from prep school, raging against phoniness and seeking something authentic. One of the most controversial and beloved novels in American literature." },
+  { key: '/works/OL1132738W',  title: 'Animal Farm',                             author: 'George Orwell',         cover_i: null, blurb: "When farm animals overthrow their farmer they establish a society based on equality — until the pigs decide some animals are more equal than others. Orwell's devastating fable of power and corruption." },
+  { key: '/works/OL16158W',    title: 'Brave New World',                         author: 'Aldous Huxley',         cover_i: null, blurb: "In a future of engineered humans and endless entertainment, one man dares to question whether happiness is worth the cost of freedom. A dystopia that feels more relevant with every passing year." },
+  { key: '/works/OL17930368W', title: 'The Alchemist',                           author: 'Paulo Coelho',          cover_i: null, blurb: "A young shepherd journeys across the Sahara in search of buried treasure, discovering that the real treasure lies within himself. An international phenomenon and timeless parable." },
+  { key: '/works/OL5765163W',  title: 'A Game of Thrones',                      author: 'George R.R. Martin',    cover_i: null, blurb: "Noble families vie for control of the Iron Throne while a forgotten threat stirs beyond the Wall. Epic, ruthless, and utterly compulsive — fantasy at its most ambitious." },
+  { key: '/works/OL11892655W', title: 'The Hunger Games',                        author: 'Suzanne Collins',       cover_i: null, blurb: "Sixteen-year-old Katniss volunteers to take her sister's place in a televised battle to the death. A propulsive adventure story with a beating political heart." },
+  { key: '/works/OL166258W',   title: "The Handmaid's Tale",                     author: 'Margaret Atwood',       cover_i: null, blurb: "In the theocratic Republic of Gilead, fertile women are forced to bear children for the ruling class. Atwood's terrifying masterpiece asks how an ordinary society becomes a dystopia." },
+  { key: '/works/OL17075472W', title: 'Sapiens: A Brief History of Humankind',  author: 'Yuval Noah Harari',     cover_i: null, blurb: "From the Stone Age to the Silicon Age, Harari traces the forces that shaped our species. Breathtaking, controversial, and immensely readable." },
+  { key: '/works/OL8479867W',  title: 'The Name of the Wind',                   author: 'Patrick Rothfuss',      cover_i: null, blurb: "Kvothe, legendary wizard and king-killer, tells the true story of his life to a wandering scribe over three days. A beautifully written fantasy debut that reads like a myth in the making." },
+  { key: '/works/OL19967379W', title: 'Circe',                                   author: 'Madeline Miller',       cover_i: null, blurb: "The daughter of Helios discovers she has the power of witchcraft and forges her own destiny among gods and monsters. A luminous, feminist retelling of Greek mythology." },
+  { key: '/works/OL20010319W', title: 'Normal People',                           author: 'Sally Rooney',          cover_i: null, blurb: "Connell and Marianne grow up in the same small Irish town but inhabit different worlds. An intimate, electric novel about the connection between two people — and the miscommunications that keep them apart." },
+  { key: '/works/OL20860241W', title: 'Atomic Habits',                           author: 'James Clear',           cover_i: null, blurb: "A proven system for building good habits and breaking bad ones, one tiny change at a time. The most practical and transformative self-improvement book of the decade." },
+];
+let _botwCache = null, _botwCacheTs = 0;
+const BOTW_TTL = 60 * 60 * 1000;
+
+app.get('/api/discover/book-of-week', (req, res) => {
+  const now = Date.now();
+  if (_botwCache && now - _botwCacheTs < BOTW_TTL) return res.json(_botwCache);
+  const weekNum = Math.floor(now / (7 * 24 * 60 * 60 * 1000));
+  const book = BOOK_OF_WEEK_LIST[weekNum % BOOK_OF_WEEK_LIST.length];
+  _botwCache = book; _botwCacheTs = now;
+  res.json(book);
 });
 
 // ---------- CSV export ----------
