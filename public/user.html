@@ -79,7 +79,7 @@ function renderNotFound() {
     </div>`;
 }
 
-function renderShelf(books, heading, emptyMsg) {
+function renderShelf(books, heading, emptyMsg, showWantBtn) {
   if (!books || !books.length) {
     return `
       <div class="shelf-section">
@@ -91,6 +91,9 @@ function renderShelf(books, heading, emptyMsg) {
     const coverUrl = b.cover_i
       ? 'https://covers.openlibrary.org/b/id/' + b.cover_i + '-M.jpg'
       : null;
+    const wantBtn = showWantBtn && b.key
+      ? `<button class="want-btn" data-key="${escHtml(b.key)}" data-title="${escHtml(b.title||'')}" data-author="${escHtml(b.author||'')}" data-coveri="${b.cover_i != null ? b.cover_i : ''}">+ Want</button>`
+      : '';
     return `
       <div class="shelf-book" title="${escHtml(b.title)}${b.author ? ' — ' + escHtml(b.author) : ''}">
         <div class="shelf-book-cover">
@@ -100,6 +103,7 @@ function renderShelf(books, heading, emptyMsg) {
           <span class="shelf-book-initial"${coverUrl ? ' style="display:none"' : ''}>${escHtml((b.title||'?')[0])}</span>
         </div>
         <div class="shelf-book-title">${escHtml(b.title)}</div>
+        ${wantBtn}
       </div>`;
   }).join('');
   return `
@@ -126,20 +130,30 @@ function renderShelf(books, heading, emptyMsg) {
   document.title = username + ' — Bookshelf';
 
   let data;
+  let loggedIn = false;
+  let loggedInUsername = null;
   try {
-    const res = await fetch('/api/public/' + encodeURIComponent(username));
-    if (!res.ok) {
+    const [profileRes, meRes] = await Promise.all([
+      fetch('/api/public/' + encodeURIComponent(username)),
+      fetch('/api/me')
+    ]);
+    if (!profileRes.ok) {
       content.innerHTML = renderNotFound();
       return;
     }
-    data = await res.json();
+    data = await profileRes.json();
     if (data.error) { content.innerHTML = renderNotFound(); return; }
+    const meData = await meRes.json();
+    loggedIn = meData.loggedIn === true;
+    loggedInUsername = meData.username || null;
   } catch (_) {
     content.innerHTML = '<div class="empty">Could not load profile. Check your connection.</div>';
     return;
   }
 
   document.title = data.username + ' — Bookshelf';
+
+  const showWantBtn = loggedIn && data.username !== loggedInUsername;
 
   const initial = (data.username || '?')[0].toUpperCase();
   const stats   = data.stats || {};
@@ -176,14 +190,34 @@ function renderShelf(books, heading, emptyMsg) {
       </div>
     </div>
 
-    ${renderShelf(data.fav,  'Favourites',      'No favourites yet.')}
-    ${renderShelf(data.read, 'Already Read',     'No books read yet.')}
-    ${renderShelf(data.want, 'Want to Read',     'Nothing on the want list yet.')}
+    ${renderShelf(data.fav,  'Favourites',      'No favourites yet.',           showWantBtn)}
+    ${renderShelf(data.read, 'Already Read',     'No books read yet.',           showWantBtn)}
+    ${renderShelf(data.want, 'Want to Read',     'Nothing on the want list yet.', showWantBtn)}
 
     <div class="user-footer">
       <a href="/">Create your own Bookshelf &rarr;</a>
     </div>
   `;
+
+  if (showWantBtn) {
+    content.querySelectorAll('.want-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const { key, title, author, coveri } = btn.dataset;
+        const cover_i = coveri !== '' ? parseInt(coveri, 10) : null;
+        try {
+          const res = await fetch('/api/lists/want/toggle', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ key, title, author, cover_i })
+          });
+          if (!res.ok) return;
+          btn.textContent = '✓ Want';
+          btn.classList.add('want-added');
+          btn.disabled = true;
+        } catch (_) {}
+      });
+    });
+  }
 })();
 </script>
 </body>

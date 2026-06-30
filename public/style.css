@@ -926,3 +926,21 @@ html.dark .spinner{
 html.dark .modal-notes-ta{background:#1e1b16;color:#e8e0cc;border-color:#4a4238;}
 html.dark #modalNotes{border-top-color:#3a3228;}
 
+/* ── Public profile "+ Want" button ── */
+.want-btn{
+  display:block;width:100%;margin-top:5px;
+  padding:3px 0;
+  font-family:Georgia,serif;font-size:10px;font-weight:600;letter-spacing:0.02em;
+  color:var(--forest);background:none;
+  border:1.5px solid var(--forest);border-radius:20px;
+  cursor:pointer;
+  transition:background 0.15s,color 0.15s;
+  line-height:1.5;
+}
+.want-btn:hover:not(:disabled){background:var(--forest);color:#f4edd6;}
+.want-btn.want-added{background:var(--forest);color:#f4edd6;border-color:var(--forest);}
+.want-btn:disabled{cursor:default;}
+html.dark .want-btn{color:#7ab895;border-color:#7ab895;}
+html.dark .want-btn:hover:not(:disabled){background:#7ab895;color:#1a1a14;}
+html.dark .want-btn.want-added{background:#7ab895;color:#1a1a14;border-color:#7ab895;}
+

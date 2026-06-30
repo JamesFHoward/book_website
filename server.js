@@ -929,7 +929,7 @@ app.get('/api/public/:username', (req, res) => {
 
   const want = [], read = [], fav = [];
   for (const r of rows) {
-    const entry = { title: r.title, author: r.author, cover_i: r.cover_i, added_at: r.added_at };
+    const entry = { key: r.key, title: r.title, author: r.author, cover_i: r.cover_i, added_at: r.added_at };
     if (r.list_type === 'want') want.push(entry);
     else if (r.list_type === 'read') read.push(entry);
     else if (r.list_type === 'fav') fav.push(entry);
