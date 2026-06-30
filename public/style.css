@@ -908,3 +908,21 @@ html.dark .spinner{
   grid-column:1/-1;display:flex;justify-content:center;padding:20px;
 }
 
+/* ── Modal notes (Feature 4) ── */
+.modal-notes-label{
+  display:block;font-family:Georgia,serif;font-size:12px;
+  letter-spacing:0.08em;text-transform:uppercase;color:#9a8e78;
+  margin-bottom:5px;
+}
+.modal-notes-ta{
+  width:100%;box-sizing:border-box;
+  border:1px solid rgba(31,61,46,0.20);border-radius:4px;
+  background:rgba(242,236,221,0.45);
+  font-family:Georgia,serif;font-size:14px;color:var(--ink);
+  padding:8px 10px;resize:vertical;outline:none;line-height:1.5;
+  transition:border-color 0.15s;
+}
+.modal-notes-ta:focus{border-color:var(--forest);}
+html.dark .modal-notes-ta{background:#1e1b16;color:#e8e0cc;border-color:#4a4238;}
+html.dark #modalNotes{border-top-color:#3a3228;}
+

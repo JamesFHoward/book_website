@@ -13,6 +13,7 @@ const { Strategy: GoogleStrategy } = require('passport-google-oauth20');
 const { Strategy: GitHubStrategy  } = require('passport-github2');
 
 const { isQualitySearchResult } = require('./public/utils.js');
+const multer = require('multer');
 
 const app  = express();
 const PORT = process.env.PORT || 3000;
@@ -116,6 +117,7 @@ try { db.exec('ALTER TABLE users ADD COLUMN email TEXT UNIQUE'); }         catch
 try { db.exec('ALTER TABLE book_entries ADD COLUMN rating INTEGER'); }     catch (_) {}
 try { db.exec('ALTER TABLE book_entries ADD COLUMN note TEXT'); }          catch (_) {}
 try { db.exec('ALTER TABLE book_entries ADD COLUMN pages INTEGER'); }      catch (_) {}
+try { db.exec('ALTER TABLE book_entries ADD COLUMN quote TEXT'); }         catch (_) {}
 
 // ---------- Email ----------
 const mailer = (process.env.EMAIL_USER && process.env.EMAIL_PASS)
@@ -876,38 +878,194 @@ app.get('/api/discover/new-releases', requireAuth, async (req, res) => {
 });
 
 // ---------- Book of the Week ----------
-const BOOK_OF_WEEK_LIST = [
-  { key: '/works/OL82563W',    title: "Harry Potter and the Philosopher's Stone", author: 'J.K. Rowling',          cover_i: null, blurb: "An orphaned boy discovers he is a wizard and begins his education at Hogwarts. The book that launched a global phenomenon and reminded the world that magic is real." },
-  { key: '/works/OL27479W',    title: 'The Lord of the Rings',                    author: 'J.R.R. Tolkien',        cover_i: null, blurb: "A humble hobbit must carry the most dangerous artefact in Middle-earth across a continent of peril. Tolkien's monumental masterpiece created the template for all modern fantasy." },
-  { key: '/works/OL1168013W',  title: 'Nineteen Eighty-Four',                    author: 'George Orwell',         cover_i: null, blurb: "Winston Smith lives under the all-seeing eye of Big Brother in a totalitarian dystopia where truth itself is rewritten daily. The definitive novel of surveillance and the resilience of the human spirit." },
-  { key: '/works/OL45883W',    title: 'To Kill a Mockingbird',                   author: 'Harper Lee',            cover_i: null, blurb: "Seen through young Scout Finch's eyes, this Pulitzer Prize-winner confronts racial injustice in the American Deep South. A timeless story about empathy, courage, and moral growth." },
-  { key: '/works/OL675347W',   title: 'Pride and Prejudice',                     author: 'Jane Austen',           cover_i: null, blurb: "Elizabeth Bennet and the proud Mr Darcy navigate love, class, and social expectation in Regency England. Austen's razor-sharp wit and enduring romance make this the perfect novel." },
-  { key: '/works/OL468431W',   title: 'The Great Gatsby',                        author: 'F. Scott Fitzgerald',  cover_i: null, blurb: "Through narrator Nick Carraway's eyes, we witness the dazzling and tragic story of Jay Gatsby's obsessive pursuit of the American Dream. Brief, brilliant, and never out of print." },
-  { key: '/works/OL36014W',    title: 'Dune',                                    author: 'Frank Herbert',         cover_i: null, blurb: "On the desert planet Arrakis, young Paul Atreides must survive political treachery and harness the universe's most precious resource. The best-selling science fiction novel of all time." },
-  { key: '/works/OL7353617W',  title: "The Hitchhiker's Guide to the Galaxy",    author: 'Douglas Adams',         cover_i: null, blurb: "Moments before Earth is demolished for a hyperspace bypass, Arthur Dent is whisked into the cosmos by his alien friend. Endlessly quotable and utterly unique." },
-  { key: '/works/OL3335457W',  title: 'The Catcher in the Rye',                 author: 'J.D. Salinger',         cover_i: null, blurb: "Holden Caulfield wanders New York after being expelled from prep school, raging against phoniness and seeking something authentic. One of the most controversial and beloved novels in American literature." },
-  { key: '/works/OL1132738W',  title: 'Animal Farm',                             author: 'George Orwell',         cover_i: null, blurb: "When farm animals overthrow their farmer they establish a society based on equality — until the pigs decide some animals are more equal than others. Orwell's devastating fable of power and corruption." },
-  { key: '/works/OL16158W',    title: 'Brave New World',                         author: 'Aldous Huxley',         cover_i: null, blurb: "In a future of engineered humans and endless entertainment, one man dares to question whether happiness is worth the cost of freedom. A dystopia that feels more relevant with every passing year." },
-  { key: '/works/OL17930368W', title: 'The Alchemist',                           author: 'Paulo Coelho',          cover_i: null, blurb: "A young shepherd journeys across the Sahara in search of buried treasure, discovering that the real treasure lies within himself. An international phenomenon and timeless parable." },
-  { key: '/works/OL5765163W',  title: 'A Game of Thrones',                      author: 'George R.R. Martin',    cover_i: null, blurb: "Noble families vie for control of the Iron Throne while a forgotten threat stirs beyond the Wall. Epic, ruthless, and utterly compulsive — fantasy at its most ambitious." },
-  { key: '/works/OL11892655W', title: 'The Hunger Games',                        author: 'Suzanne Collins',       cover_i: null, blurb: "Sixteen-year-old Katniss volunteers to take her sister's place in a televised battle to the death. A propulsive adventure story with a beating political heart." },
-  { key: '/works/OL166258W',   title: "The Handmaid's Tale",                     author: 'Margaret Atwood',       cover_i: null, blurb: "In the theocratic Republic of Gilead, fertile women are forced to bear children for the ruling class. Atwood's terrifying masterpiece asks how an ordinary society becomes a dystopia." },
-  { key: '/works/OL17075472W', title: 'Sapiens: A Brief History of Humankind',  author: 'Yuval Noah Harari',     cover_i: null, blurb: "From the Stone Age to the Silicon Age, Harari traces the forces that shaped our species. Breathtaking, controversial, and immensely readable." },
-  { key: '/works/OL8479867W',  title: 'The Name of the Wind',                   author: 'Patrick Rothfuss',      cover_i: null, blurb: "Kvothe, legendary wizard and king-killer, tells the true story of his life to a wandering scribe over three days. A beautifully written fantasy debut that reads like a myth in the making." },
-  { key: '/works/OL19967379W', title: 'Circe',                                   author: 'Madeline Miller',       cover_i: null, blurb: "The daughter of Helios discovers she has the power of witchcraft and forges her own destiny among gods and monsters. A luminous, feminist retelling of Greek mythology." },
-  { key: '/works/OL20010319W', title: 'Normal People',                           author: 'Sally Rooney',          cover_i: null, blurb: "Connell and Marianne grow up in the same small Irish town but inhabit different worlds. An intimate, electric novel about the connection between two people — and the miscommunications that keep them apart." },
-  { key: '/works/OL20860241W', title: 'Atomic Habits',                           author: 'James Clear',           cover_i: null, blurb: "A proven system for building good habits and breaking bad ones, one tiny change at a time. The most practical and transformative self-improvement book of the decade." },
+const BOTW_SUBJECTS = [
+  'fiction','mystery','romance','fantasy','science fiction',
+  'thriller','biography','history','literary fiction','adventure',
 ];
+const BOTW_FALLBACK = { key: '/works/OL45883W', title: 'To Kill a Mockingbird', author: 'Harper Lee', cover_i: null, blurb: null };
 let _botwCache = null, _botwCacheTs = 0;
-const BOTW_TTL = 60 * 60 * 1000;
+const BOTW_TTL = 24 * 60 * 60 * 1000;
 
-app.get('/api/discover/book-of-week', (req, res) => {
+app.get('/api/discover/book-of-week', async (req, res) => {
   const now = Date.now();
   if (_botwCache && now - _botwCacheTs < BOTW_TTL) return res.json(_botwCache);
   const weekNum = Math.floor(now / (7 * 24 * 60 * 60 * 1000));
-  const book = BOOK_OF_WEEK_LIST[weekNum % BOOK_OF_WEEK_LIST.length];
-  _botwCache = book; _botwCacheTs = now;
-  res.json(book);
+  const subject = BOTW_SUBJECTS[weekNum % BOTW_SUBJECTS.length];
+  try {
+    const upstream = await fetch(
+      `https://openlibrary.org/search.json?subject=${encodeURIComponent(subject)}&sort=rating&limit=50&fields=key,title,author_name,cover_i,first_publish_year`
+    );
+    const json = await upstream.json();
+    const filtered = (json.docs || []).filter(isQualitySearchResult);
+    if (!filtered.length) throw new Error('no results');
+    const book = filtered[weekNum % filtered.length];
+    const result = {
+      key: book.key,
+      title: book.title,
+      author: book.author_name[0],
+      cover_i: book.cover_i || null,
+      blurb: null,
+    };
+    _botwCache = result; _botwCacheTs = now;
+    res.json(result);
+  } catch {
+    res.json(BOTW_FALLBACK);
+  }
+});
+
+// ---------- Public profile ----------
+app.get('/u/:username', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'user.html'));
+});
+
+app.get('/api/public/:username', (req, res) => {
+  const user = db.prepare('SELECT id, username FROM users WHERE username = ?').get(req.params.username);
+  if (!user) return res.status(404).json({ error: 'User not found' });
+
+  const rows = db.prepare(
+    `SELECT list_type, book_key as key, title, author, cover_i, added_at
+     FROM book_entries WHERE user_id = ? ORDER BY added_at DESC`
+  ).all(user.id);
+
+  const want = [], read = [], fav = [];
+  for (const r of rows) {
+    const entry = { title: r.title, author: r.author, cover_i: r.cover_i, added_at: r.added_at };
+    if (r.list_type === 'want') want.push(entry);
+    else if (r.list_type === 'read') read.push(entry);
+    else if (r.list_type === 'fav') fav.push(entry);
+  }
+
+  const totalBooks = rows.length;
+  const totalPages = db.prepare(
+    "SELECT COALESCE(SUM(pages), 0) as total FROM book_entries WHERE user_id = ? AND list_type = 'read'"
+  ).get(user.id).total;
+
+  const weekRows = db.prepare(
+    `SELECT DISTINCT strftime('%Y-%W', added_at) as wk
+     FROM book_entries WHERE user_id = ? ORDER BY wk DESC LIMIT 52`
+  ).all(user.id);
+
+  let currentStreak = 0;
+  const todayWeek = new Date();
+  for (let i = 0; i < weekRows.length; i++) {
+    const d = new Date(todayWeek);
+    d.setDate(d.getDate() - i * 7);
+    const expectedWk = d.getFullYear() + '-' + String(Math.ceil((d - new Date(d.getFullYear(), 0, 1)) / 604800000)).padStart(2, '0');
+    if (weekRows[i].wk === expectedWk) currentStreak++;
+    else break;
+  }
+
+  res.json({ username: user.username, stats: { totalBooks, totalPages, currentStreak }, read, want, fav });
+});
+
+// ---------- Book notes ----------
+app.get('/api/notes/:bookKey', requireAuth, (req, res) => {
+  const row = db.prepare(
+    'SELECT note, quote FROM book_entries WHERE user_id = ? AND book_key = ? LIMIT 1'
+  ).get(req.session.userId, decodeURIComponent(req.params.bookKey));
+  res.json(row ? { note: row.note || null, quote: row.quote || null } : { note: null, quote: null });
+});
+
+app.post('/api/notes/:bookKey', requireAuth, (req, res) => {
+  const key = decodeURIComponent(req.params.bookKey);
+  const existing = db.prepare('SELECT id FROM book_entries WHERE user_id = ? AND book_key = ? LIMIT 1').get(req.session.userId, key);
+  if (!existing) return res.status(400).json({ error: 'Book not on any shelf.' });
+  const { note, quote } = req.body;
+  db.prepare(
+    'UPDATE book_entries SET note = ?, quote = ? WHERE user_id = ? AND book_key = ?'
+  ).run(
+    note ? String(note).slice(0, 2000) : null,
+    quote ? String(quote).slice(0, 1000) : null,
+    req.session.userId, key
+  );
+  res.json({ ok: true });
+});
+
+// ---------- Goodreads CSV import ----------
+const _upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
+
+app.post('/api/import/goodreads', requireAuth, _upload.single('file'), (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'No file uploaded.' });
+  const text = req.file.buffer.toString('utf8');
+  const lines = text.split(/\r?\n/);
+  if (lines.length < 2) return res.status(400).json({ error: 'File appears empty.' });
+
+  // Parse header row to get column indices
+  function parseCsvRow(line) {
+    const fields = [];
+    let cur = '', inQ = false;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (ch === '"') {
+        if (inQ && line[i + 1] === '"') { cur += '"'; i++; }
+        else inQ = !inQ;
+      } else if (ch === ',' && !inQ) {
+        fields.push(cur); cur = '';
+      } else {
+        cur += ch;
+      }
+    }
+    fields.push(cur);
+    return fields;
+  }
+
+  const header = parseCsvRow(lines[0]).map(h => h.trim().replace(/^﻿/, ''));
+  const col = name => header.indexOf(name);
+  const iTitle   = col('Title');
+  const iAuthor  = col('Author');
+  const iISBN13  = col('ISBN13');
+  const iPages   = col('Number of Pages');
+  const iShelf   = col('Exclusive Shelf');
+  const iDateRead = col('Date Read');
+  const iDateAdded = col('Date Added');
+
+  if (iTitle === -1 || iShelf === -1) return res.status(400).json({ error: 'Does not look like a Goodreads CSV (missing Title or Exclusive Shelf columns).' });
+
+  let imported = 0, skipped = 0;
+  const errors = [];
+
+  for (let i = 1; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line) continue;
+    const fields = parseCsvRow(line);
+    const title  = (fields[iTitle]  || '').trim();
+    const author = (fields[iAuthor] || '').trim();
+    const shelf  = (fields[iShelf]  || '').trim();
+    const pages  = parseInt(fields[iPages] || '', 10) || null;
+    const rawIsbn = iISBN13 >= 0 ? (fields[iISBN13] || '').replace(/[^0-9]/g, '') : null;
+    const isbn   = rawIsbn && rawIsbn.length >= 10 ? rawIsbn : null;
+    const addedAt = (iDateAdded >= 0 ? fields[iDateAdded] : '') || new Date().toISOString().slice(0, 10);
+
+    if (!title) { skipped++; continue; }
+
+    const bookKey = isbn ? `/isbn/${isbn}` : `/import/${Buffer.from(title + author).toString('base64').slice(0, 32)}`;
+
+    try {
+      if (shelf === 'read') {
+        const dateRead = (iDateRead >= 0 ? fields[iDateRead] : '') || addedAt || new Date().toISOString().slice(0, 10);
+        db.prepare(
+          'INSERT OR IGNORE INTO book_entries (user_id, list_type, book_key, title, author, cover_i, pages, added_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+        ).run(req.session.userId, 'read', bookKey, title, author || null, null, pages, dateRead || addedAt);
+        imported++;
+      } else if (shelf === 'to-read') {
+        db.prepare(
+          'INSERT OR IGNORE INTO book_entries (user_id, list_type, book_key, title, author, cover_i, added_at) VALUES (?, ?, ?, ?, ?, ?, ?)'
+        ).run(req.session.userId, 'want', bookKey, title, author || null, null, addedAt);
+        imported++;
+      } else if (shelf === 'currently-reading') {
+        db.prepare(
+          'INSERT OR IGNORE INTO currently_reading (user_id, book_key, title, author, cover_i, started_at) VALUES (?, ?, ?, ?, ?, ?)'
+        ).run(req.session.userId, bookKey, title, author || null, null, addedAt);
+        imported++;
+      } else {
+        skipped++;
+      }
+    } catch (e) {
+      errors.push(title);
+    }
+  }
+
+  res.json({ imported, skipped, errors });
 });
 
 // ---------- CSV export ----------

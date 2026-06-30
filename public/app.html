@@ -100,7 +100,9 @@ async function checkAuth(){
   document.getElementById('userchip').innerHTML =
     `<div class="userchip-actions">
        <button id="darkToggle" class="nav-btn nav-btn-back" style="font-size:13px;padding:7px 12px;">${darkPref ? '☀ Light' : '🌙 Dark'}</button>
-       <a href="/profile.html" class="nav-btn nav-btn-profile" title="View your profile"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>${escHtml(data.username)}</a>
+       <button id="importGrBtn" class="nav-btn nav-btn-back" style="font-size:13px;padding:7px 12px;" title="Import from Goodreads">Import</button>
+       <button id="shareProfileBtn" class="nav-btn nav-btn-back" style="font-size:13px;padding:7px 12px;position:relative;" title="Copy public profile link">Share</button>
+       <a href="/u/${encodeURIComponent(data.username)}" class="nav-btn nav-btn-profile" title="View your public profile"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>${escHtml(data.username)}</a>
        <button id="logoutBtn" class="nav-btn nav-btn-signout">Sign out</button>
      </div>`;
   const logoutBtn = document.getElementById('logoutBtn');
@@ -117,6 +119,23 @@ async function checkAuth(){
     localStorage.setItem('darkMode', isDark);
     document.getElementById('darkToggle').textContent = isDark ? '☀ Light' : '🌙 Dark';
   });
+
+  const shareBtn = document.getElementById('shareProfileBtn');
+  if (shareBtn) {
+    shareBtn.addEventListener('click', () => {
+      const url = window.location.origin + '/u/' + encodeURIComponent(data.username);
+      navigator.clipboard.writeText(url).then(() => {
+        const orig = shareBtn.textContent;
+        shareBtn.textContent = 'Link copied!';
+        setTimeout(() => { shareBtn.textContent = orig; }, 2000);
+      }).catch(() => {
+        prompt('Copy your profile link:', url);
+      });
+    });
+  }
+
+  const importGrBtn = document.getElementById('importGrBtn');
+  if (importGrBtn) importGrBtn.addEventListener('click', showImportModal);
 }
 
 async function loadLists(){
@@ -873,6 +892,17 @@ function showBookModal({ title, author, cover_i, cover_isbn, blurb, series, mood
           <span style="font-style:italic;color:#9a8e78;font-size:13px;font-family:Georgia,serif;">Finding similar books…</span>
         </div>
       </div>
+      <div id="modalNotes" style="display:none;border-top:1px solid #ece5d2;padding-top:18px;margin-top:6px;">
+        <div style="font-family:Georgia,serif;font-size:11px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:#9a8e78;margin-bottom:12px;">Notes</div>
+        <label class="modal-notes-label">Private note</label>
+        <textarea id="modalNoteText" class="modal-notes-ta" placeholder="Your thoughts on this book…" rows="3"></textarea>
+        <label class="modal-notes-label" style="margin-top:10px;">Favourite quote</label>
+        <textarea id="modalQuoteText" class="modal-notes-ta" placeholder="A memorable passage…" rows="2"></textarea>
+        <div style="display:flex;align-items:center;gap:10px;margin-top:8px;">
+          <button id="modalNotesSave" class="note-save" style="padding:6px 18px;font-size:14px;">Save note</button>
+          <span id="modalNotesSaved" style="display:none;font-family:Georgia,serif;font-size:13px;color:#2d5c44;font-style:italic;">Saved ✓</span>
+        </div>
+      </div>
     </div>
   `;
 
@@ -1017,6 +1047,7 @@ function showBookModal({ title, author, cover_i, cover_isbn, blurb, series, mood
   // Render immediately — if we already have an olBook we're done; otherwise show
   // faded placeholders and upgrade to the real OL key in the background.
   renderButtons();
+  if (currentKey) showNotesIfShelved(currentKey);
 
   const descEl  = overlay.querySelector('#modalDesc');
   const descBtn = overlay.querySelector('#modalDescBtn');
@@ -1113,6 +1144,46 @@ function showBookModal({ title, author, cover_i, cover_isbn, blurb, series, mood
     }
   }
 
+  // Notes section — only shown when book is on at least one shelf
+  const notesEl    = overlay.querySelector('#modalNotes');
+  const noteTa     = overlay.querySelector('#modalNoteText');
+  const quoteTa    = overlay.querySelector('#modalQuoteText');
+  const notesSave  = overlay.querySelector('#modalNotesSave');
+  const notesSaved = overlay.querySelector('#modalNotesSaved');
+  let _notesKey = null;
+
+  function showNotesIfShelved(key) {
+    if (!key) return;
+    _notesKey = key;
+    const onShelf = !!(lists.want[key] || lists.read[key] || lists.fav[key] || readingList.some(r => r.key === key));
+    if (!onShelf) return;
+    notesEl.style.display = '';
+    fetch(`/api/notes/${encodeURIComponent(key)}`)
+      .then(r => r.json())
+      .then(d => {
+        noteTa.value  = d.note  || '';
+        quoteTa.value = d.quote || '';
+      })
+      .catch(() => {});
+  }
+
+  notesSave.addEventListener('click', async () => {
+    if (!_notesKey) return;
+    notesSave.disabled = true;
+    await fetch(`/api/notes/${encodeURIComponent(_notesKey)}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ note: noteTa.value.trim(), quote: quoteTa.value.trim() }),
+    });
+    notesSaved.style.display = '';
+    setTimeout(() => { notesSaved.style.display = 'none'; }, 2000);
+    notesSave.disabled = false;
+    // Update local list state so the card view stays consistent
+    if (lists.want[_notesKey]) lists.want[_notesKey].note = noteTa.value.trim() || null;
+    if (lists.read[_notesKey]) lists.read[_notesKey].note = noteTa.value.trim() || null;
+    if (lists.fav[_notesKey])  lists.fav[_notesKey].note  = noteTa.value.trim() || null;
+  });
+
   if (olBook) {
     const workKey = (olBook.key || '').replace('/works/', '');
     _resolveDescKey(workKey || null);
@@ -1129,6 +1200,7 @@ function showBookModal({ title, author, cover_i, cover_isbn, blurb, series, mood
           currentCover  = ob.cover_i || cover_i || null;
           currentPages  = ob.number_of_pages_median || pages || null;
           renderButtons();
+          showNotesIfShelved(currentKey);
           const wk = (ob.key || '').replace('/works/', '');
           _resolveDescKey(wk || null);
         } else {
@@ -2052,6 +2124,55 @@ function showScannedResults(isbns, resolved) {
   content.appendChild(grid);
 }
 
+
+function showImportModal() {
+  const overlay = document.createElement('div');
+  overlay.className = 'rec-modal-overlay';
+  overlay.innerHTML = `
+    <div class="rec-modal" role="dialog" aria-modal="true" style="max-width:480px;">
+      <button class="rec-modal-close" aria-label="Close">✕</button>
+      <div class="rec-modal-title" style="font-size:20px;margin-bottom:14px;">Import from Goodreads</div>
+      <p style="font-family:Georgia,serif;font-size:14px;color:#5b5448;line-height:1.6;margin:0 0 16px;">
+        Export your library from Goodreads (My Books &rarr; Import/Export &rarr; Export Library), then upload the CSV file here.
+      </p>
+      <input type="file" id="importCsvFile" accept=".csv" style="display:block;margin-bottom:14px;font-family:Georgia,serif;font-size:14px;">
+      <button id="importCsvBtn" class="btn-primary" style="width:auto;padding:10px 22px;">Import</button>
+      <div id="importResult" style="margin-top:14px;font-family:Georgia,serif;font-size:14px;color:#5b5448;"></div>
+    </div>
+  `;
+  function close() { overlay.remove(); document.removeEventListener('keydown', esc); }
+  function esc(e) { if (e.key === 'Escape') close(); }
+  overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+  overlay.querySelector('.rec-modal-close').addEventListener('click', close);
+  document.addEventListener('keydown', esc);
+  document.body.appendChild(overlay);
+
+  overlay.querySelector('#importCsvBtn').addEventListener('click', async () => {
+    const file = overlay.querySelector('#importCsvFile').files[0];
+    if (!file) { overlay.querySelector('#importResult').textContent = 'Please select a CSV file.'; return; }
+    const btn = overlay.querySelector('#importCsvBtn');
+    btn.disabled = true; btn.textContent = 'Importing…';
+    const formData = new FormData();
+    formData.append('file', file);
+    try {
+      const res = await fetch('/api/import/goodreads', { method: 'POST', body: formData });
+      const data = await res.json();
+      if (!res.ok) {
+        overlay.querySelector('#importResult').textContent = 'Error: ' + (data.error || 'Import failed.');
+      } else {
+        overlay.querySelector('#importResult').textContent =
+          `Imported ${data.imported} book${data.imported !== 1 ? 's' : ''}` +
+          (data.skipped ? `, skipped ${data.skipped}` : '') + '.';
+        await Promise.all([loadLists(), loadReading(), loadDnf()]);
+        updateCounts();
+        if (activeTab !== 'search' && activeTab !== 'recs') renderActiveTab();
+      }
+    } catch {
+      overlay.querySelector('#importResult').textContent = 'Import failed. Check your connection.';
+    }
+    btn.disabled = false; btn.textContent = 'Import';
+  });
+}
 
 (async () => {
   await checkAuth();

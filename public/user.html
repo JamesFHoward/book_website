@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bookshelf</title>
+<link rel="stylesheet" href="/style.css">
+<meta name="theme-color" content="#1F3D2E">
+<style>
+.user-wrap{max-width:900px;margin:0 auto;padding:36px 28px 80px;}
+.user-topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:36px;flex-wrap:wrap;}
+.user-brand{font-family:Georgia,serif;font-size:26px;font-weight:700;color:var(--forest);text-decoration:none;letter-spacing:-0.01em;}
+.user-header{display:flex;align-items:center;gap:22px;margin-bottom:28px;flex-wrap:wrap;}
+.user-avatar{
+  width:72px;height:72px;border-radius:50%;background:var(--forest);
+  display:flex;align-items:center;justify-content:center;
+  font-family:Georgia,serif;font-size:30px;font-weight:700;color:#f4edd6;
+  flex-shrink:0;box-shadow:0 4px 16px rgba(31,61,46,0.25);
+}
+.user-name{font-family:Georgia,serif;font-size:28px;font-weight:700;color:var(--forest);margin:0 0 4px;letter-spacing:-0.01em;}
+.user-sub{font-family:Georgia,serif;font-size:14px;color:#9a8e78;margin:0;font-style:italic;}
+.user-stats{display:flex;gap:12px;margin-bottom:32px;flex-wrap:wrap;}
+.user-stat{background:var(--card);border:1px solid #e3dbc2;border-radius:8px;padding:16px 20px;text-align:center;flex:1;min-width:100px;}
+.user-stat-num{font-family:Georgia,serif;font-size:30px;font-weight:700;color:var(--forest);line-height:1;margin-bottom:5px;}
+.user-stat-label{font-family:Georgia,serif;font-size:11px;letter-spacing:0.07em;text-transform:uppercase;color:#9a8e78;line-height:1.3;}
+.shelf-section{margin-bottom:36px;}
+.shelf-heading{font-family:Georgia,serif;font-size:18px;font-weight:600;color:var(--forest);margin:0 0 14px;padding-bottom:10px;border-bottom:1.5px solid #d8cfb4;}
+.shelf-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(90px,1fr));gap:12px;}
+.shelf-book{cursor:default;}
+.shelf-book-cover{
+  width:100%;aspect-ratio:2/3;border-radius:4px;overflow:hidden;
+  background:var(--forest);display:flex;align-items:center;justify-content:center;
+  box-shadow:0 2px 8px rgba(0,0,0,0.15);margin-bottom:6px;
+}
+.shelf-book-cover img{width:100%;height:100%;object-fit:cover;display:block;}
+.shelf-book-initial{font-family:Georgia,serif;font-size:26px;font-weight:700;color:rgba(255,255,255,0.65);}
+.shelf-book-title{font-family:Georgia,serif;font-size:11.5px;color:var(--forest);line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+.user-empty-shelf{font-family:Georgia,serif;font-size:14px;color:#9a8e78;font-style:italic;margin:0;}
+.user-footer{text-align:center;padding-top:20px;border-top:1px solid #e3dbc2;margin-top:20px;}
+.user-footer a{font-family:Georgia,serif;font-size:15px;color:var(--forest);text-decoration:none;font-weight:600;border-bottom:1.5px solid rgba(31,61,46,0.3);padding-bottom:1px;transition:border-color 0.15s;}
+.user-footer a:hover{border-color:var(--forest);}
+.user-not-found{text-align:center;padding:80px 20px;}
+.user-not-found-title{font-family:Georgia,serif;font-size:24px;font-weight:700;color:var(--forest);margin:0 0 12px;}
+.user-not-found-sub{font-family:Georgia,serif;font-size:15px;color:#9a8e78;font-style:italic;margin:0 0 28px;}
+html.dark .user-stat{background:#252118;border-color:#3a3228;}
+html.dark .shelf-heading{border-bottom-color:#3a3228;}
+html.dark .user-footer{border-top-color:#3a3228;}
+html.dark .shelf-book-title{color:var(--forest);}
+@media(max-width:520px){
+  .user-wrap{padding:20px 14px 60px;}
+  .user-name{font-size:22px;}
+  .user-stats{gap:8px;}
+  .user-stat{padding:12px 14px;}
+  .user-stat-num{font-size:24px;}
+  .shelf-grid{grid-template-columns:repeat(auto-fill,minmax(70px,1fr));gap:8px;}
+}
+</style>
+</head>
+<body>
+<div class="user-wrap">
+  <div class="user-topbar">
+    <a href="/" class="user-brand">Bookshelf</a>
+  </div>
+  <div id="userContent"></div>
+</div>
+<script>
+function escHtml(str) {
+  return String(str || '')
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+function renderNotFound() {
+  return `
+    <div class="user-not-found">
+      <div class="user-not-found-title">User not found</div>
+      <p class="user-not-found-sub">This bookshelf doesn&rsquo;t exist (yet).</p>
+      <a href="/" class="nav-btn nav-btn-back">Create your own Bookshelf &rarr;</a>
+    </div>`;
+}
+
+function renderShelf(books, heading, emptyMsg) {
+  if (!books || !books.length) {
+    return `
+      <div class="shelf-section">
+        <h2 class="shelf-heading">${escHtml(heading)}</h2>
+        <p class="user-empty-shelf">${escHtml(emptyMsg)}</p>
+      </div>`;
+  }
+  const cards = books.map(b => {
+    const coverUrl = b.cover_i
+      ? 'https://covers.openlibrary.org/b/id/' + b.cover_i + '-M.jpg'
+      : null;
+    return `
+      <div class="shelf-book" title="${escHtml(b.title)}${b.author ? ' — ' + escHtml(b.author) : ''}">
+        <div class="shelf-book-cover">
+          ${coverUrl
+            ? `<img src="${escHtml(coverUrl)}" alt="${escHtml(b.title)}" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`
+            : ''}
+          <span class="shelf-book-initial"${coverUrl ? ' style="display:none"' : ''}>${escHtml((b.title||'?')[0])}</span>
+        </div>
+        <div class="shelf-book-title">${escHtml(b.title)}</div>
+      </div>`;
+  }).join('');
+  return `
+    <div class="shelf-section">
+      <h2 class="shelf-heading">${escHtml(heading)}</h2>
+      <div class="shelf-grid">${cards}</div>
+    </div>`;
+}
+
+(async () => {
+  const darkPref = localStorage.getItem('darkMode') === 'true';
+  if (darkPref) document.documentElement.classList.add('dark');
+
+  const pathParts = window.location.pathname.replace(/\/$/, '').split('/');
+  const username = decodeURIComponent(pathParts[pathParts.length - 1] || '');
+
+  const content = document.getElementById('userContent');
+
+  if (!username) {
+    content.innerHTML = renderNotFound();
+    return;
+  }
+
+  document.title = username + ' — Bookshelf';
+
+  let data;
+  try {
+    const res = await fetch('/api/public/' + encodeURIComponent(username));
+    if (!res.ok) {
+      content.innerHTML = renderNotFound();
+      return;
+    }
+    data = await res.json();
+    if (data.error) { content.innerHTML = renderNotFound(); return; }
+  } catch (_) {
+    content.innerHTML = '<div class="empty">Could not load profile. Check your connection.</div>';
+    return;
+  }
+
+  document.title = data.username + ' — Bookshelf';
+
+  const initial = (data.username || '?')[0].toUpperCase();
+  const stats   = data.stats || {};
+  const totalBooks    = stats.totalBooks    || 0;
+  const totalPages    = stats.totalPages    || 0;
+  const currentStreak = stats.currentStreak || 0;
+  const favCount      = (data.fav  || []).length;
+
+  content.innerHTML = `
+    <div class="user-header">
+      <div class="user-avatar">${escHtml(initial)}</div>
+      <div>
+        <div class="user-name">${escHtml(data.username)}</div>
+        <p class="user-sub">Bookshelf member</p>
+      </div>
+    </div>
+
+    <div class="user-stats">
+      <div class="user-stat">
+        <div class="user-stat-num">${totalBooks}</div>
+        <div class="user-stat-label">Books shelved</div>
+      </div>
+      <div class="user-stat">
+        <div class="user-stat-num">${favCount}</div>
+        <div class="user-stat-label">Favourites</div>
+      </div>
+      <div class="user-stat">
+        <div class="user-stat-num">${totalPages.toLocaleString()}</div>
+        <div class="user-stat-label">Pages read</div>
+      </div>
+      <div class="user-stat">
+        <div class="user-stat-num">${currentStreak}</div>
+        <div class="user-stat-label">Week streak</div>
+      </div>
+    </div>
+
+    ${renderShelf(data.fav,  'Favourites',      'No favourites yet.')}
+    ${renderShelf(data.read, 'Already Read',     'No books read yet.')}
+    ${renderShelf(data.want, 'Want to Read',     'Nothing on the want list yet.')}
+
+    <div class="user-footer">
+      <a href="/">Create your own Bookshelf &rarr;</a>
+    </div>
+  `;
+})();
+</script>
+</body>
+</html>
