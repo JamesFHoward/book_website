@@ -18,7 +18,7 @@ test.describe('Reading tab', () => {
   test('adding a book appears in the Reading tab', async ({ page }) => {
     await registerAndLogin(page, uniqueUser());
     await addBookToReading(page);
-    await expect(page.locator('.reading-card')).toHaveCount({ min: 1 });
+    await expect(page.locator('.reading-card').first()).toBeVisible();
     await expect(page.locator('#countReading')).not.toHaveText('0');
   });
 
@@ -56,16 +56,23 @@ test.describe('Reading tab', () => {
     assert_isEmpty_or_zero(countText);
     // Read shelf should have a book
     await page.locator('[data-tab="read"]').click();
-    await expect(page.locator('.card')).toHaveCount({ min: 1 });
+    await expect(page.locator('.card').first()).toBeVisible();
   });
 
-  test('DNF button moves book to Paused tab', async ({ page }) => {
+  test('finish button shows recommendations panel in reading tab', async ({ page }) => {
+    await registerAndLogin(page, uniqueUser());
+    await addBookToReading(page);
+    await page.locator('.reading-finish-btn').first().click();
+    await expect(page.locator('.finish-recs-panel')).toBeVisible({ timeout: 5000 });
+  });
+
+  test('DNF button moves book to Paused section in Reading tab', async ({ page }) => {
     await registerAndLogin(page, uniqueUser());
     await addBookToReading(page);
     await page.locator('.reading-dnf-btn').first().click();
     await page.waitForTimeout(500);
-    await page.locator('[data-tab="dnf"]').click();
-    await expect(page.locator('.card')).toHaveCount({ min: 1 });
+    // Paused books appear as .card in the Paused section of the reading tab
+    await expect(page.locator('.card').first()).toBeVisible();
   });
 });
 

@@ -265,6 +265,29 @@ describe('API Integration Tests', async () => {
       if (r.status !== 200) return; // skip if network unavailable in CI
       assert.ok(Array.isArray(r.data));
     });
+
+    test('filters coverless books — every result has cover_i (network-dependent)', async () => {
+      const c = await loggedInClient();
+      const r = await c.get('/api/search?q=hamlet');
+      if (r.status !== 200) return; // skip if network unavailable
+      assert.ok(Array.isArray(r.data));
+      for (const book of r.data) {
+        assert.ok(book.cover_i, `Expected cover_i on "${book.title}" but got ${book.cover_i}`);
+      }
+    });
+
+    test('all search results have required quality fields (network-dependent)', async () => {
+      const c = await loggedInClient();
+      const r = await c.get('/api/search?q=tolkien');
+      if (r.status !== 200) return; // skip if network unavailable
+      assert.ok(Array.isArray(r.data));
+      for (const book of r.data) {
+        assert.ok(book.cover_i,            `Missing cover_i on "${book.title}"`);
+        assert.ok(book.first_publish_year, `Missing first_publish_year on "${book.title}"`);
+        assert.ok(Array.isArray(book.author_name) && book.author_name.length > 0,
+                  `Missing author_name on "${book.title}"`);
+      }
+    });
   });
 
   // ── Collections ───────────────────────────────────────────────────────────
@@ -384,6 +407,57 @@ describe('API Integration Tests', async () => {
       const book = r.data.find(b => b.book_key === 'OLH4W');
       assert.ok(book, 'book should be present in history');
       assert.equal(book.cover_i, null);
+    });
+  });
+
+  // ── Book of the Week ─────────────────────────────────────────────────────
+
+  describe('GET /api/discover/book-of-week', () => {
+    before(() => api.reset());
+
+    test('public endpoint — no auth required', async () => {
+      const r = await api.get('/api/discover/book-of-week');
+      assert.equal(r.status, 200);
+    });
+
+    test('returns required fields', async () => {
+      const r = await api.get('/api/discover/book-of-week');
+      assert.equal(r.status, 200);
+      assert.ok(r.data.key,    'should have key');
+      assert.ok(r.data.title,  'should have title');
+      assert.ok(r.data.author, 'should have author');
+      assert.ok(r.data.blurb,  'should have blurb');
+    });
+
+    test('key is a string starting with /works/', async () => {
+      const r = await api.get('/api/discover/book-of-week');
+      assert.equal(typeof r.data.key, 'string');
+      assert.ok(r.data.key.startsWith('/works/'), `key should start with /works/, got "${r.data.key}"`);
+    });
+
+    test('consistent within same session — cache is warm', async () => {
+      const r1 = await api.get('/api/discover/book-of-week');
+      const r2 = await api.get('/api/discover/book-of-week');
+      assert.equal(r1.data.key,   r2.data.key);
+      assert.equal(r1.data.title, r2.data.title);
+    });
+  });
+
+  // ── OAuth routes ──────────────────────────────────────────────────────────
+
+  describe('OAuth routes', () => {
+    before(() => api.reset());
+
+    test('GET /auth/google returns 404 when GOOGLE_CLIENT_ID is not set', async () => {
+      if (process.env.GOOGLE_CLIENT_ID) return;
+      const r = await api.get('/auth/google');
+      assert.equal(r.status, 404);
+    });
+
+    test('GET /auth/github returns 404 when GITHUB_CLIENT_ID is not set', async () => {
+      if (process.env.GITHUB_CLIENT_ID) return;
+      const r = await api.get('/auth/github');
+      assert.equal(r.status, 404);
     });
   });
 

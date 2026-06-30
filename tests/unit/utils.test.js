@@ -1,7 +1,7 @@
 'use strict';
 const { describe, test } = require('node:test');
 const assert = require('node:assert/strict');
-const { escHtml, bookKey, coverUrl, calcPace } = require('../../public/utils.js');
+const { escHtml, bookKey, coverUrl, calcPace, isQualitySearchResult } = require('../../public/utils.js');
 
 describe('escHtml', () => {
   test('escapes < > & "', () => {
@@ -92,5 +92,66 @@ describe('calcPace', () => {
     const result = calcPace(50, justNow, 300);
     assert.ok(result !== null);
     assert.ok(result.ppd > 0);
+  });
+});
+
+describe('isQualitySearchResult', () => {
+  const good = { cover_i: 123, first_publish_year: 2001, author_name: ['J.K. Rowling'], title: 'Harry Potter' };
+
+  test('good book passes all conditions', () => {
+    assert.equal(isQualitySearchResult(good), true);
+  });
+
+  test('rejects when cover_i is null', () => {
+    assert.equal(isQualitySearchResult({ ...good, cover_i: null }), false);
+  });
+
+  test('rejects when cover_i is absent', () => {
+    const { cover_i: _, ...rest } = good;
+    assert.equal(isQualitySearchResult(rest), false);
+  });
+
+  test('rejects when first_publish_year is absent', () => {
+    const { first_publish_year: _, ...rest } = good;
+    assert.equal(isQualitySearchResult(rest), false);
+  });
+
+  test('rejects when author_name is absent', () => {
+    const { author_name: _, ...rest } = good;
+    assert.equal(isQualitySearchResult(rest), false);
+  });
+
+  test('rejects when author_name is an empty array', () => {
+    assert.equal(isQualitySearchResult({ ...good, author_name: [] }), false);
+  });
+
+  test('rejects when title is a single character', () => {
+    assert.equal(isQualitySearchResult({ ...good, title: 'a' }), false);
+  });
+
+  test('rejects when title equals author (garbage entry)', () => {
+    assert.equal(isQualitySearchResult({ ...good, title: 'asdasd', author_name: ['asdasd'] }), false);
+  });
+
+  test('author with exactly 3 unique chars passes (boundary — condition is strictly < 3)', () => {
+    // 'asd' → authorCompact = 'asd' → unique chars {a,s,d} = 3 → 3 < 3 is false → passes
+    assert.equal(isQualitySearchResult({ ...good, author_name: ['asd'] }), true);
+  });
+
+  test('rejects author with fewer than 3 unique non-space chars (single char repeated)', () => {
+    // 'aa aa' → authorCompact = 'aaaa' → unique chars {a} = 1 → 1 < 3 → rejected
+    assert.equal(isQualitySearchResult({ ...good, author_name: ['aa aa'] }), false);
+  });
+
+  test('rejects title where all words are identical (repeated-word garbage)', () => {
+    assert.equal(isQualitySearchResult({ ...good, title: 'asd asd' }), false);
+  });
+
+  test('two-word distinct title passes', () => {
+    assert.equal(isQualitySearchResult({ cover_i: 123, first_publish_year: 1937, author_name: ['J.R.R. Tolkien'], title: 'The Hobbit' }), true);
+  });
+
+  test('two-character title passes (boundary — condition is strictly < 2)', () => {
+    assert.equal(isQualitySearchResult({ cover_i: 99, first_publish_year: 1986, author_name: ['Stephen King'], title: 'It' }), true);
   });
 });
