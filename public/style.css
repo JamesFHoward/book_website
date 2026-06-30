@@ -158,8 +158,17 @@ button{font-family:Georgia,serif;cursor:pointer;}
 .pill:focus-visible{outline:2px solid var(--gold);outline-offset:1px;}
 
 .cover-fallback{
-  font-family:Georgia,serif;font-size:42px;font-weight:700;
-  color:var(--forest);opacity:.35;line-height:1;
+  align-self:stretch;
+  width:100%;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background:var(--forest);
+  font-family:Georgia,serif;
+  font-size:42px;
+  font-weight:700;
+  color:rgba(255,255,255,0.65);
+  line-height:1;
 }
 .empty{text-align:center;padding:60px 20px;color:#857c68;font-style:italic;}
 .loading{padding:20px;text-align:center;color:#857c68;font-style:italic;}
@@ -771,4 +780,131 @@ html.dark .userchip-name{color:#8a7e6a;}
 }
 html.dark .rec-modal-similar{border-top-color:#3a3228;}
 html.dark .rec-modal-similar-card-title{color:var(--forest);}
+
+/* ── "Because you finished" recs panel (Feature 8) ── */
+.finish-recs-panel{
+  background:var(--card);border:1px solid #e3dbc2;border-left:3px solid var(--gold);
+  border-radius:8px;padding:16px 20px;margin:14px 0;
+}
+.finish-recs-header{
+  display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;
+}
+.finish-recs-title{
+  font-family:Georgia,serif;font-size:15px;font-weight:600;color:var(--forest);
+}
+.finish-recs-dismiss{
+  background:none;border:none;font-size:16px;color:#9a8e78;cursor:pointer;
+  padding:2px 6px;line-height:1;
+}
+.finish-recs-dismiss:hover{color:var(--ink);}
+.finish-recs-grid{
+  display:grid;grid-template-columns:repeat(3,1fr);gap:12px;
+}
+.finish-recs-book{cursor:pointer;text-align:center;}
+.finish-recs-book:hover .finish-recs-cover{
+  transform:translateY(-2px);box-shadow:0 4px 12px rgba(0,0,0,0.22);
+}
+.finish-recs-cover{
+  width:100%;aspect-ratio:2/3;border-radius:4px;overflow:hidden;
+  display:flex;align-items:center;justify-content:center;background:var(--forest);
+  margin-bottom:6px;transition:transform 0.15s,box-shadow 0.15s;
+  box-shadow:0 2px 8px rgba(0,0,0,0.15);
+}
+.finish-recs-cover img{width:100%;height:100%;object-fit:cover;display:block;}
+.finish-recs-initial{
+  font-family:Georgia,serif;font-size:28px;font-weight:700;color:rgba(255,255,255,0.65);
+}
+.finish-recs-book-title{
+  font-family:Georgia,serif;font-size:12px;color:var(--forest);line-height:1.3;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
+}
+html.dark .finish-recs-panel{border-color:#3a3228;border-left-color:var(--gold);}
+
+/* ── Book of the Week (Feature 10) ── */
+.botw-container{margin-bottom:20px;}
+.botw-card{
+  background:var(--card);border:1.5px solid rgba(31,61,46,0.28);border-radius:10px;
+  padding:20px 22px;box-shadow:0 4px 14px rgba(31,61,46,0.10);
+}
+.botw-badge{
+  font-family:Georgia,serif;font-size:11.5px;font-weight:700;color:var(--forest);
+  letter-spacing:0.08em;text-transform:uppercase;margin-bottom:14px;
+}
+.botw-inner{display:flex;gap:20px;align-items:flex-start;}
+.botw-cover{
+  flex-shrink:0;width:100px;aspect-ratio:2/3;border-radius:4px;overflow:hidden;
+  box-shadow:3px 4px 12px rgba(0,0,0,0.25);display:flex;align-items:center;
+  justify-content:center;background:var(--forest);
+}
+.botw-cover img{width:100%;height:100%;object-fit:cover;display:block;}
+.botw-cover-initial{
+  font-family:Georgia,serif;font-size:36px;font-weight:700;color:rgba(255,255,255,0.65);
+}
+.botw-info{flex:1;min-width:0;}
+.botw-title{
+  font-family:Georgia,serif;font-size:21px;font-weight:700;color:var(--forest);
+  line-height:1.2;margin-bottom:4px;
+}
+.botw-author{font-size:14.5px;color:#6f6755;margin-bottom:10px;}
+.botw-blurb{font-size:14px;color:#5b5448;line-height:1.6;margin-bottom:14px;}
+.botw-want-btn{
+  padding:8px 18px;font-family:Georgia,serif;font-size:14px;font-weight:600;
+  border:1.3px solid var(--forest);border-radius:4px;background:none;
+  color:var(--forest);cursor:pointer;transition:all 0.15s;
+}
+.botw-want-btn:hover,.botw-want-btn.active{background:var(--forest);color:var(--parchment);}
+html.dark .botw-card{border-color:rgba(90,173,122,0.3);}
+html.dark .botw-blurb{color:#c8bca0;}
+html.dark .botw-author{color:#b0a888;}
+@media(max-width:520px){
+  .botw-inner{flex-direction:column;align-items:center;text-align:center;}
+  .botw-cover{width:80px;}
+}
+
+/* ── OAuth login buttons (Feature 12) ── */
+.oauth-divider{
+  text-align:center;margin:20px 0;position:relative;
+  font-size:14px;color:#9a8e78;font-family:Georgia,serif;font-style:italic;
+}
+.oauth-divider::before{
+  content:'';position:absolute;top:50%;left:0;right:0;
+  border-top:1px solid #e3dbc2;z-index:0;
+}
+.oauth-divider span{background:var(--card);position:relative;z-index:1;padding:0 12px;}
+.oauth-btns{display:flex;flex-direction:column;gap:10px;}
+.oauth-btn{
+  display:flex;align-items:center;justify-content:center;gap:10px;
+  padding:11px 16px;border-radius:6px;font-family:Georgia,serif;
+  font-size:15px;font-weight:600;text-decoration:none;cursor:pointer;
+  transition:all 0.15s;border:1.5px solid;
+}
+.oauth-btn-google{background:#fff;border-color:#d0c9b2;color:#3c3c3c;}
+.oauth-btn-google:hover{border-color:#aaa;box-shadow:0 2px 6px rgba(0,0,0,0.10);}
+.oauth-btn-github{background:#24292e;border-color:#24292e;color:#fff;}
+.oauth-btn-github:hover{background:#1b1f23;}
+html.dark .oauth-btn-google{background:#2a2520;border-color:#4a4238;color:#e8e0cc;}
+html.dark .oauth-btn-github{background:#161b22;border-color:#30363d;}
+html.dark .oauth-divider::before{border-color:#3a3228;}
+html.dark .oauth-divider span{background:#252118;}
+
+/* ── Loading spinner ── */
+@keyframes spin{to{transform:rotate(360deg);}}
+.spinner-wrap{
+  display:flex;justify-content:center;align-items:center;padding:48px 20px;
+}
+.spinner{
+  width:40px;height:40px;
+  border:4px solid rgba(31,61,46,0.15);
+  border-top-color:#1F3D2E;
+  border-radius:50%;
+  animation:spin 0.75s linear infinite;
+}
+html.dark .spinner{
+  border-color:rgba(90,173,122,0.15);
+  border-top-color:#5aad7a;
+}
+/* spans all columns when placed inside a rec-genre-grid */
+.spinner-grid-span{
+  grid-column:1/-1;display:flex;justify-content:center;padding:20px;
+}
 

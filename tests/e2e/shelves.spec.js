@@ -47,7 +47,7 @@ test.describe('Shelves — want / read / fav', () => {
   test('books appear in shelf tab after adding', async ({ page }) => {
     await page.locator('.card').first().locator('[data-action="want"]').click();
     await page.locator('[data-tab="want"]').click();
-    await expect(page.locator('.card')).toHaveCount({ min: 1 });
+    await expect(page.locator('.card').first()).toBeVisible();
   });
 
   test('Remove button deletes book from shelf', async ({ page }) => {

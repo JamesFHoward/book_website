@@ -53,6 +53,7 @@ let readingGoal = null; // { year, goal, read } for current year
 let dnfList = [];       // did not finish books
 let collections = [];   // user collections
 let activeSort = 'date'; // sort state for shelf tabs
+let finishRecsPanel = null; // "Because you finished" panel reference
 
 let _undoTimer = null;
 function showToast(msg, onUndo) {
@@ -183,7 +184,8 @@ function updateCounts(){
   document.getElementById('countRead').textContent    = n(Object.keys(lists.read).length);
   document.getElementById('countFav').textContent     = n(Object.keys(lists.fav).length);
   document.getElementById('countReading').textContent = n(readingList.length);
-  document.getElementById('countDnf').textContent = n(dnfList.length);
+  const dnfEl = document.getElementById('countDnf');
+  if (dnfEl) dnfEl.textContent = n(dnfList.length);
 }
 
 // bookKey, coverUrl, escHtml, calcPace loaded from /utils.js
@@ -223,7 +225,10 @@ function renderCard(b, idKey){
   div.className = 'card';
   div.innerHTML = `
     ${inFav ? '<span class="star">⭐</span>' : ''}
-    <div class="cover">${cover ? `<img src="${cover}" alt="Cover of ${escHtml(title)}">` : `<span class="cover-fallback">${escHtml(title[0])}</span>`}</div>
+    <div class="cover">
+      ${cover ? `<img src="${cover}" alt="Cover of ${escHtml(title)}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">` : ''}
+      <span class="cover-fallback"${cover ? ' style="display:none"' : ''}>${escHtml((title||'?')[0])}</span>
+    </div>
     <div class="info">
       <div class="title">${escHtml(title)}</div>
       <div class="author"><span class="author-link" data-author="${escHtml(author)}">${escHtml(author)}</span></div>
@@ -379,13 +384,24 @@ function renderCard(b, idKey){
   }
 
   // Click on card body (not buttons) opens detail modal
-  if (activeTab === 'search') {
-    div.addEventListener('click', e => {
-      if (e.target.closest('button')) return;
+  div.addEventListener('click', e => {
+    if (e.target.closest('button')) return;
+    if (activeTab === 'search') {
       showSearchModal(b);
-    });
-    div.style.cursor = 'pointer';
-  }
+    } else {
+      showBookModal({
+        title: b.title,
+        author: b.author || '',
+        cover_i: b.cover_i || null,
+        cover_isbn: null,
+        blurb: null,
+        olBook: { key: b.key, title: b.title, author_name: b.author ? [b.author] : [], cover_i: b.cover_i || null },
+        accentColor: '#1F3D2E',
+        pages: null,
+      });
+    }
+  });
+  div.style.cursor = 'pointer';
 
   const authorLink = div.querySelector('.author-link');
   if (authorLink) {
@@ -488,6 +504,66 @@ function renderRecommendations(){
 
   let activeGenre = 'all';
   const wrap = document.createElement('div');
+
+  // ── Book of the Week ──
+  const botwContainer = document.createElement('div');
+  botwContainer.className = 'botw-container';
+  wrap.appendChild(botwContainer);
+  fetch('/api/discover/book-of-week')
+    .then(r => r.json())
+    .then(botw => {
+      if (!botwContainer.isConnected) return;
+      const olid = (botw.key || '').replace('/works/', '');
+      const botwCoverUrl = botw.cover_i
+        ? `https://covers.openlibrary.org/b/id/${botw.cover_i}-L.jpg`
+        : `https://covers.openlibrary.org/b/olid/${olid}-L.jpg`;
+      const inWant = !!(botw.key && lists.want[botw.key]);
+      botwContainer.innerHTML = `
+        <div class="botw-card">
+          <div class="botw-badge">✦ Book of the Week</div>
+          <div class="botw-inner">
+            <div class="botw-cover">
+              <img src="${botwCoverUrl}" alt="${escHtml(botw.title)}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+              <span class="botw-cover-initial" style="display:none">${escHtml((botw.title||'?')[0])}</span>
+            </div>
+            <div class="botw-info">
+              <div class="botw-title">${escHtml(botw.title)}</div>
+              <div class="botw-author">by ${escHtml(botw.author)}</div>
+              ${botw.blurb ? `<div class="botw-blurb">${escHtml(botw.blurb)}</div>` : ''}
+              <button class="botw-want-btn${inWant ? ' active' : ''}">${inWant ? '✓ Want to Read' : '+ Want to Read'}</button>
+            </div>
+          </div>
+        </div>
+      `;
+      const wantBtn = botwContainer.querySelector('.botw-want-btn');
+      wantBtn.addEventListener('click', async e => {
+        e.stopPropagation();
+        const res = await fetch('/api/lists/want/toggle', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ key: botw.key, title: botw.title, author: botw.author, cover_i: botw.cover_i || null }),
+        });
+        const r = await res.json();
+        if (r.active) {
+          lists.want[botw.key] = { title: botw.title, author: botw.author, cover_i: botw.cover_i || null, key: botw.key };
+          for (const gone of (r.removed || [])) {
+            if (gone === 'read') delete lists.read[botw.key];
+            if (gone === 'reading') readingList = readingList.filter(e => e.key !== botw.key);
+          }
+          dnfList = dnfList.filter(d => d.key !== botw.key);
+        } else {
+          delete lists.want[botw.key];
+        }
+        updateCounts();
+        wantBtn.textContent = lists.want[botw.key] ? '✓ Want to Read' : '+ Want to Read';
+        wantBtn.classList.toggle('active', !!lists.want[botw.key]);
+      });
+      botwContainer.querySelector('.botw-inner').addEventListener('click', e => {
+        if (e.target.closest('button')) return;
+        showBookModal({ title: botw.title, author: botw.author, cover_i: botw.cover_i || null, cover_isbn: null, blurb: botw.blurb || null, accentColor: '#1F3D2E' });
+      });
+      botwContainer.querySelector('.botw-inner').style.cursor = 'pointer';
+    })
+    .catch(() => { botwContainer.innerHTML = ''; });
 
   // Genre filter bar
   const genreBar = document.createElement('div');
@@ -600,7 +676,12 @@ function renderRecommendations(){
             ...forYouTitles, ...shelfTitles,
           ]);
           const capturedGrid = grid;
+          const spinEl = document.createElement('div');
+          spinEl.className = 'spinner-grid-span';
+          spinEl.innerHTML = '<div class="spinner"></div>';
+          capturedGrid.appendChild(spinEl);
           fetchOlGenreBooks(topGenre.olQuery, shownTitles).then(olBooks => {
+            spinEl.remove();
             if (renderEpoch !== epoch) return;
             for (const b of olBooks.slice(0, TARGET - picks.length))
               capturedGrid.appendChild(makeRecCard(b, topGenre.genre, GENRE_COLORS[topGenre.genre] || '#1F3D2E', true));
@@ -620,7 +701,7 @@ function renderRecommendations(){
         lh.innerHTML = `<span class="genre-dot" style="background:var(--gold)"></span>Because you loved <em>${escHtml(loved.title)}</em>`;
         lovedSect.appendChild(lh);
         const lg = document.createElement('div'); lg.className = 'rec-genre-grid';
-        lg.innerHTML = '<div style="color:#9a8e78;font-style:italic;font-size:13px;font-family:Georgia,serif;grid-column:1/-1">Loading…</div>';
+        lg.innerHTML = '<div class="spinner-grid-span"><div class="spinner"></div></div>';
         lovedSect.appendChild(lg);
         sectionsWrap.appendChild(lovedSect);
         const lq = loved.author ? `author:${loved.author}` : loved.title;
@@ -644,7 +725,7 @@ function renderRecommendations(){
       rh.innerHTML = `<span class="genre-dot" style="background:var(--gold)"></span>Because you're reading <em>${escHtml(currentBook.title)}</em>`;
       readingSect.appendChild(rh);
       const rg = document.createElement('div'); rg.className = 'rec-genre-grid';
-      rg.innerHTML = '<div style="color:#9a8e78;font-style:italic;font-size:13px;font-family:Georgia,serif;grid-column:1/-1">Loading…</div>';
+      rg.innerHTML = '<div class="spinner-grid-span"><div class="spinner"></div></div>';
       readingSect.appendChild(rg);
       sectionsWrap.appendChild(readingSect);
       const rq = currentBook.author ? `author:${currentBook.author}` : currentBook.title;
@@ -677,12 +758,14 @@ function renderRecommendations(){
       nh.innerHTML = `<span class="genre-dot" style="background:#c06030"></span>New &amp; Recent in ${escHtml(topG.genre)}`;
       newSect.appendChild(nh);
       const ng = document.createElement('div'); ng.className = 'rec-genre-grid';
+      ng.innerHTML = '<div class="spinner-grid-span"><div class="spinner"></div></div>';
       newSect.appendChild(ng);
       sectionsWrap.appendChild(newSect);
       fetch(`/api/discover/new-releases?genre=${encodeURIComponent(topG.genre)}`)
         .then(r => r.json()).then(books => {
           if (renderEpoch !== epoch) return;
           if (!Array.isArray(books) || !books.length) { newSect.remove(); return; }
+          ng.innerHTML = '';
           books.forEach(b => ng.appendChild(makeRecCard(b, topG.genre, '#c06030', true)));
         }).catch(() => newSect.remove());
     }
@@ -728,7 +811,12 @@ function renderRecommendations(){
           ...books.map(b => (b.title||'').toLowerCase().trim()),
         ]);
         const capturedGrid = grid;
+        const spinEl = document.createElement('div');
+        spinEl.className = 'spinner-grid-span';
+        spinEl.innerHTML = '<div class="spinner"></div>';
+        capturedGrid.appendChild(spinEl);
         fetchOlGenreBooks(section.olQuery, shownTitles).then(olBooks => {
+          spinEl.remove();
           if (renderEpoch !== epoch) return;
           for (const b of olBooks.slice(0, needed))
             capturedGrid.appendChild(makeRecCard(b, section.genre, color, true));
@@ -863,7 +951,7 @@ function showBookModal({ title, author, cover_i, cover_isbn, blurb, series, mood
           }
           dnfList = dnfList.filter(d => d.key !== k);
         } else { delete lists.want[k]; }
-        updateCounts(); renderButtons();
+        updateCounts(); renderActiveTab(); renderButtons();
       }
     );
 
@@ -883,7 +971,7 @@ function showBookModal({ title, author, cover_i, cover_isbn, blurb, series, mood
           delete lists.want[k]; // reading clears want
           dnfList = dnfList.filter(d => d.key !== k);
         }
-        updateCounts(); renderButtons();
+        updateCounts(); renderActiveTab(); renderButtons();
       }
     );
 
@@ -904,7 +992,7 @@ function showBookModal({ title, author, cover_i, cover_isbn, blurb, series, mood
           }
           dnfList = dnfList.filter(d => d.key !== k);
         } else { delete lists.read[k]; }
-        updateCounts(); renderButtons();
+        updateCounts(); renderActiveTab(); renderButtons();
       }
     );
 
@@ -921,7 +1009,7 @@ function showBookModal({ title, author, cover_i, cover_isbn, blurb, series, mood
           lists.fav[k] = { title:bT, author:bA, cover_i:bC, key:k };
           dnfList = dnfList.filter(d => d.key !== k);
         } else { delete lists.fav[k]; }
-        updateCounts(); renderButtons();
+        updateCounts(); renderActiveTab(); renderButtons();
       }
     );
   }
@@ -1077,7 +1165,7 @@ async function doSearch(){
   const q = document.getElementById('searchInput').value.trim();
   if (!q) return;
   const content = document.getElementById('content');
-  content.innerHTML = '<div class="loading">Searching the stacks…</div>';
+  content.innerHTML = '<div class="spinner-wrap"><div class="spinner"></div></div>';
   activeTab = 'search';
   setActiveTabUI('search');
   try {
@@ -1108,6 +1196,56 @@ async function prefetchSearchCovers(){
       })
   );
   if (updated && activeTab === 'search' && lastResults === snapshot) renderActiveTab();
+}
+
+function showFinishRecsPanel(finishedBook) {
+  const content = document.getElementById('content');
+  const anchor = content.querySelector('.reading-section-title');
+  if (!anchor) return;
+
+  const panel = document.createElement('div');
+  panel.className = 'finish-recs-panel';
+  panel.innerHTML = `
+    <div class="finish-recs-header">
+      <div class="finish-recs-title">Because you finished <em>${escHtml(finishedBook.title)}</em>:</div>
+      <button class="finish-recs-dismiss" aria-label="Dismiss">✕</button>
+    </div>
+    <div class="finish-recs-grid">
+      <div class="spinner-grid-span"><div class="spinner"></div></div>
+    </div>
+  `;
+
+  panel.querySelector('.finish-recs-dismiss').addEventListener('click', () => panel.remove());
+  anchor.insertAdjacentElement('afterend', panel);
+  finishRecsPanel = panel;
+
+  const subject = finishedBook.author || finishedBook.title.split(' ')[0];
+  const grid = panel.querySelector('.finish-recs-grid');
+  fetch(`/api/discover/similar?subject=${encodeURIComponent(subject)}`)
+    .then(r => r.json())
+    .then(books => {
+      if (!panel.isConnected) return;
+      const filtered = Array.isArray(books)
+        ? books.filter(b => b.cover_i && (b.title||'').toLowerCase() !== (finishedBook.title||'').toLowerCase()).slice(0, 3)
+        : [];
+      if (!filtered.length) { panel.remove(); return; }
+      grid.innerHTML = '';
+      for (const b of filtered) {
+        const bUrl = `https://covers.openlibrary.org/b/id/${b.cover_i}-M.jpg`;
+        const bCard = document.createElement('div');
+        bCard.className = 'finish-recs-book';
+        bCard.innerHTML = `
+          <div class="finish-recs-cover">
+            <img src="${bUrl}" alt="${escHtml(b.title)}" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+            <span class="finish-recs-initial" style="display:none">${escHtml((b.title||'?')[0])}</span>
+          </div>
+          <div class="finish-recs-book-title">${escHtml(b.title)}</div>
+        `;
+        bCard.addEventListener('click', () => showSearchModal(b));
+        grid.appendChild(bCard);
+      }
+    })
+    .catch(() => { if (panel.isConnected) panel.remove(); });
 }
 
 function renderReading(){
@@ -1325,6 +1463,7 @@ function renderReading(){
 
     // Finish
     card.querySelector('.reading-finish-btn').addEventListener('click', async () => {
+      const finishedBook = { title: book.title, author: book.author, key: book.key };
       await fetch('/api/reading/finish', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1333,6 +1472,7 @@ function renderReading(){
       await Promise.all([loadLists(), loadReading()]);
       updateCounts();
       renderReading();
+      showFinishRecsPanel(finishedBook);
     });
 
     // DNF
@@ -1349,6 +1489,21 @@ function renderReading(){
       await loadReading();
       updateCounts();
       renderReading();
+    });
+
+    card.style.cursor = 'pointer';
+    card.addEventListener('click', e => {
+      if (e.target.closest('button') || e.target.closest('input')) return;
+      showBookModal({
+        title: book.title,
+        author: book.author || '',
+        cover_i: book.cover_i || null,
+        cover_isbn: book.cover_isbn || null,
+        blurb: null,
+        olBook: { key: book.key, title: book.title, author_name: book.author ? [book.author] : [], cover_i: book.cover_i || null },
+        accentColor: '#1F3D2E',
+        pages: book.total_pages || null,
+      });
     });
 
     grid.appendChild(card);
@@ -1374,7 +1529,10 @@ function renderReading(){
       const bCard = document.createElement('div');
       bCard.className = 'card';
       bCard.innerHTML = `
-        <div class="cover">${bCoverUrl ? `<img src="${escHtml(bCoverUrl)}" alt="${escHtml(b.title)}">` : `<span class="cover-fallback">${escHtml((b.title||'?')[0])}</span>`}</div>
+        <div class="cover">
+          ${bCoverUrl ? `<img src="${escHtml(bCoverUrl)}" alt="${escHtml(b.title)}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">` : ''}
+          <span class="cover-fallback"${bCoverUrl ? ' style="display:none"' : ''}>${escHtml((b.title||'?')[0])}</span>
+        </div>
         <div class="info">
           <div class="title">${escHtml(b.title)}</div>
           <div class="author">${escHtml(b.author || 'Unknown author')}</div>
@@ -1508,7 +1666,10 @@ function renderDnf() {
     const card = document.createElement('div');
     card.className = 'card';
     card.innerHTML = `
-      <div class="cover">${cover ? `<img src="${escHtml(cover)}" alt="${escHtml(book.title)}">` : `<span class="cover-fallback">${escHtml((book.title||'?')[0])}</span>`}</div>
+      <div class="cover">
+        ${cover ? `<img src="${escHtml(cover)}" alt="${escHtml(book.title)}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">` : ''}
+        <span class="cover-fallback"${cover ? ' style="display:none"' : ''}>${escHtml((book.title||'?')[0])}</span>
+      </div>
       <div class="info">
         <div class="title">${escHtml(book.title)}</div>
         <div class="author">${escHtml(book.author || 'Unknown author')}</div>
